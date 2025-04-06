@@ -1,0 +1,89 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --radius: 0.75rem;
+    --sidebar-background: 240 10% 3.9%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 277 99% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 277 99% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-black text-foreground antialiased scroll-smooth font-inter;
+    background-image: 
+      radial-gradient(circle at 15% 50%, rgba(160, 32, 240, 0.08) 0%, transparent 25%),
+      radial-gradient(circle at 85% 30%, rgba(0, 255, 255, 0.08) 0%, transparent 25%),
+      radial-gradient(circle at 50% 80%, rgba(255, 0, 255, 0.08) 0%, transparent 25%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-space-grotesk font-bold;
+  }
+
+  .glass-card {
+    @apply bg-surface-dark/80 backdrop-blur-xl border border-white/10 shadow-lg;
+  }
+
+  .neon-border {
+    @apply relative rounded-lg overflow-hidden;
+  }
+
+  .neon-border::before {
+    content: '';
+    @apply absolute inset-0 p-[1px] rounded-lg bg-gradient-to-r from-neon-purple via-neon-blue to-neon-pink animate-gradient-shift;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-neon-purple via-neon-blue to-neon-pink animate-gradient-shift;
+    background-size: 200% 200%;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 5px rgba(160, 32, 240, 0.5),
+                 0 0 10px rgba(160, 32, 240, 0.3);
+  }
+
+  .section-padding {
+    @apply py-16 px-4 md:py-24 md:px-8 lg:px-12;
+  }
+
+  .hover-scale {
+    @apply transition-transform duration-300 hover:scale-105;
+  }
+}
