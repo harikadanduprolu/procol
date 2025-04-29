@@ -1,9 +1,9 @@
 import express from 'express';
-import {
-  createProject,
-  getProjects,
-  getProject,
-  updateProject,
+import { 
+  createProject, 
+  getProjects, 
+  getProject, 
+  updateProject, 
   deleteProject,
   addTeamMember,
   removeTeamMember

@@ -1,0 +1,66 @@
+### SIGNUP Request
+POST http://localhost:5173/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "johndoe@example.com",
+  "password": "securepassword",
+  "dateOfBirth": "2000-01-01",
+  "graduationYear": 2025,
+  "course": "CSE",
+  "skills": ["C", "C++", "Python"],
+  "college": "VNR VJIET",
+  "githubLink": "https://github.com/johndoe",
+  "linkedInLink": "https://linkedin.com/in/johndoe"
+}
+
+### SIGNIN Request
+POST http://localhost:5173/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "johndoe@example.com",
+  "password": "securepassword"
+}
+
+### Add a Hardware Project
+POST http://localhost:5000/api/projects/add
+Content-Type: application/json
+
+{
+  "title": "Smart Irrigation System",
+  "type": "hardware",
+  "description": "An IoT-based automatic irrigation system.",
+  "demoVideo": "https://youtu.be/sampleDemoVideo",
+  "physicalEquipmentRequired": "Sensors, Microcontroller, Water Pump",
+  "overview": "This project automates irrigation using soil moisture sensors.",
+  "teammateRequirements": "Need 2 teammates experienced in IoT & Embedded Systems",
+  "teammateSkills": ["IoT", "Arduino", "Circuit Design"],
+  "researchCases": "Based on research on smart agriculture systems."
+}
+
+### Add a Software Project
+POST http://localhost:5000/api/projects/add
+Content-Type: application/json
+
+{
+  "title": "AI-based Health Monitor",
+  "type": "software",
+  "description": "An AI-driven health monitoring application.",
+  "teamLeader": {
+    "name": "John Doe",
+    "profileLink": "https://github.com/johndoe"
+  },
+  "summary": "Uses AI to detect health anomalies.",
+  "techRequirements": ["Python", "TensorFlow", "React"]
+}
+
+### Get All Projects
+GET http://localhost:5000/api/projects/
+
+### Get a Specific Project
+GET http://localhost:5000/api/projects/{projectId}
+
+### Delete a Project
+DELETE http://localhost:5000/api/projects/{projectId}

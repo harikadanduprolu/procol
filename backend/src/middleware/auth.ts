@@ -16,7 +16,7 @@ declare global {
 
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const token = req.header('Authorization')?.replace('Bearer', '');
 
     if (!token) {
       throw new Error();
@@ -38,7 +38,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
 
 export const checkRole = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
+    if (!req.user || !req.user.role) {
       return res.status(401).json({ message: 'Please authenticate' });
     }
 

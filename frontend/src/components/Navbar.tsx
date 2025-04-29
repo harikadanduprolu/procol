@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -8,43 +7,30 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-
-  // Mock user data - would be replaced with actual user data
-  const user = {
-    name: 'John Doe',
-    avatar: '',
-    initials: 'JD',
-  };
+  const { user, isAuthenticated, logout } = useAuth();
 
   useEffect(() => {
-    // Check if user is logged in by looking for a value in localStorage
-    // In a real app, this would check more robust authentication state
-    const isUserLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    setIsLoggedIn(isUserLoggedIn);
-    
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [location]); // Re-check when location changes (like after login)
+  }, [location]); // Re-check when location changes
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   const handleLogout = () => {
-    // Clear login state from localStorage
-    localStorage.removeItem('isLoggedIn');
-    setIsLoggedIn(false);
+    logout();
     
     // Show notification
     toast({
@@ -52,9 +38,17 @@ const Navbar = () => {
       description: "You have been logged out of your account.",
       variant: "default",
     });
-    
-    // Redirect to home page
-    navigate('/');
+  };
+
+  // Get user initials for avatar fallback
+  const getUserInitials = () => {
+    if (!user?.name) return 'U';
+    return user.name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
   };
 
   return (
@@ -111,7 +105,7 @@ const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <>
                 <Link to="/projects/create">
                   <Button variant="outline" className="border-neon-purple text-neon-purple hover:bg-neon-purple/10 flex items-center gap-2">
@@ -133,11 +127,11 @@ const Navbar = () => {
                 </Link>
                 <Link to="/profile">
                   <Avatar className="cursor-pointer h-9 w-9 border-2 border-neon-blue/30 hover:border-neon-blue transition-colors">
-                    {user.avatar ? (
+                    {user?.avatar ? (
                       <AvatarImage src={user.avatar} alt={user.name} />
                     ) : (
                       <AvatarFallback className="bg-neon-blue/20 text-neon-blue">
-                        {user.initials}
+                        {getUserInitials()}
                       </AvatarFallback>
                     )}
                   </Avatar>
@@ -215,7 +209,7 @@ const Navbar = () => {
               <span>Funding</span>
             </Link>
             
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <>
                 <Link 
                   to="/projects/create" 
@@ -249,32 +243,38 @@ const Navbar = () => {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <User size={18} />
-                  <span>My Profile</span>
+                  <span>Profile</span>
                 </Link>
-                <button
+                <button 
                   className="flex items-center gap-3 text-content-primary hover:text-neon-purple transition-colors"
                   onClick={() => {
-                    setIsMobileMenuOpen(false);
                     handleLogout();
+                    setIsMobileMenuOpen(false);
                   }}
                 >
-                  <LogIn className="rotate-180" size={18} />
+                  <LogIn size={18} />
                   <span>Log Out</span>
                 </button>
               </>
             ) : (
-              <div className="pt-4 flex flex-col gap-3">
-                <Link to="/login" className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full border-neon-blue text-neon-blue hover:bg-neon-blue/10">
-                    Log In
-                  </Button>
+              <>
+                <Link 
+                  to="/login" 
+                  className="flex items-center gap-3 text-content-primary hover:text-neon-purple transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <LogIn size={18} />
+                  <span>Log In</span>
                 </Link>
-                <Link to="/signup" className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button className="w-full bg-neon-purple hover:bg-neon-purple/80 text-white">
-                    Sign Up
-                  </Button>
+                <Link 
+                  to="/signup" 
+                  className="flex items-center gap-3 text-content-primary hover:text-neon-purple transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <User size={18} />
+                  <span>Sign Up</span>
                 </Link>
-              </div>
+              </>
             )}
           </div>
         </div>

@@ -1,3 +1,5 @@
+/* The above code is a TypeScript React component for a web application's landing page. Here's a
+summary of what the code is doing: */
 
 import React, { useEffect, useRef } from 'react';
 import Navbar from '@/components/Navbar';

@@ -1,53 +1,37 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
+  name: string;
   email: string;
   password: string;
-  name: string;
-  role: 'user' | 'mentor' | 'admin';
-  bio?: string;
-  skills?: string[];
   avatar?: string;
+  bio?: string;
+  role: 'user' | 'mentor' | 'admin';
+  skills: string[];
+  github?: string;
+  linkedin?: string;
+  twitter?: string;
+  website?: string;
+  location?: string;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-const userSchema = new Schema<IUser>({
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true,
-    lowercase: true
-  },
-  password: {
-    type: String,
-    required: true,
-    minlength: 6
-  },
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  role: {
-    type: String,
-    enum: ['user', 'mentor', 'admin'],
-    default: 'user'
-  },
-  bio: {
-    type: String,
-    trim: true
-  },
-  skills: [{
-    type: String,
-    trim: true
-  }],
-  avatar: {
-    type: String
-  }
+const userSchema = new Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  avatar: { type: String },
+  bio: { type: String },
+  role: { type: String, enum: ['user', 'mentor', 'admin'], default: 'user' },
+  skills: [{ type: String }],
+  github: { type: String },
+  linkedin: { type: String },
+  twitter: { type: String },
+  website: { type: String },
+  location: { type: String }
 }, {
   timestamps: true
 });
