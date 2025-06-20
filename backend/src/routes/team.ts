@@ -6,7 +6,8 @@ import {
   updateTeam, 
   deleteTeam,
   addTeamMember,
-  removeTeamMember
+  removeTeamMember,
+  getUserTeams
 } from '../controllers/team';
 import { auth } from '../middleware/auth';
 
@@ -22,5 +23,6 @@ router.put('/:id', auth, updateTeam);
 router.delete('/:id', auth, deleteTeam);
 router.post('/:id/members', auth, addTeamMember);
 router.delete('/:id/members', auth, removeTeamMember);
+router.get('/my', auth, getUserTeams);
 
 export default router; 

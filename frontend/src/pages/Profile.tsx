@@ -112,7 +112,7 @@ const Profile = () => {
 
   if (isLoadingProfile) {
     return (
-      <div className="min-h-screen bg-surface-dark">
+      <div className="min-h-screen ">
         <Navbar />
         <main className="pt-28 pb-16 px-4">
           <div className="container mx-auto text-center">
@@ -180,12 +180,12 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface-dark">
+    <div className="min-h-screen ">
       <Navbar />
       
       <main className="pt-28 pb-16 px-4">
         <div className="container mx-auto">
-          <div className="glass-card rounded-xl p-6 md:p-8 mb-8 relative">
+          <div className="glass-card rounded-xl p-6 md:p-8 mb-8 relative transparent">
             {/* Profile Header */}
             <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center mb-6">
               <div className="relative">
@@ -298,8 +298,8 @@ const Profile = () => {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  {editedUser.skills.map((skill, index) => (
-                    <Badge 
+                {(editedUser?.skills || []).map((skill, index) => (
+                    <Badge  
                       key={index} 
                       variant="outline" 
                       className={`bg-neon-purple/10 text-neon-purple border-neon-purple/30 ${
@@ -328,14 +328,14 @@ const Profile = () => {
                     <Github size={16} className="text-neon-blue" />
                     {isEditing ? (
                       <Input 
-                        value={editedUser.socials.github}
+                      value={editedUser?.socials?.github || ''}
                         onChange={(e) => handleSocialChange('github', e.target.value)}
                         className="flex-grow bg-surface-dark/50"
                         placeholder="GitHub username"
                       />
                     ) : (
                       <a href={`https://${user.socials.github}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-blue">
-                        {user.socials.github}
+                        {user?.socials?.github}
                       </a>
                     )}
                   </div>

@@ -192,3 +192,21 @@ export const removeTeamMember = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error removing team member' });
   }
 }; 
+
+export const getUserTeams = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const teams = await Team.find({ members: req.user._id })
+      .populate('leader', 'name email avatar')
+      .populate('members', 'name email avatar')
+      .populate('projects', 'title');
+
+    res.json({ teams });
+  } catch (error) {
+    console.error('Error fetching user teams:', error);
+    res.status(500).json({ message: 'Error fetching user teams' });
+  }
+};

@@ -53,7 +53,7 @@ export const authApi = {
     api.put('/auth/profile', data),
 
   getTeams: () =>
-    api.get('/auth/teams'),
+    api.get('/teams/my'),
 };
 
 // Project API
