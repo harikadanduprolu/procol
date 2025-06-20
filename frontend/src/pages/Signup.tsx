@@ -1,157 +1,143 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from '@/components/ui/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-
-const signupSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-
-type SignupFormValues = z.infer<typeof signupSchema>;
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Signup = () => {
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { signup } = useAuth();
-  
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<SignupFormValues>({
-    resolver: zodResolver(signupSchema),
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
   });
 
-  const onSubmit = async (data: SignupFormValues) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Passwords don't match");
+      return;
+    }
+
     try {
       setIsLoading(true);
-      // Remove confirmPassword before sending to API
-      const { confirmPassword, ...signupData } = data;
-      await signup(signupData.name, signupData.email, signupData.password);
-      
-      toast({
-        title: "Account created",
-        description: "Welcome to ProCollab! Your account has been created successfully.",
-        variant: "default",
-      });
-      
-      navigate('/');
+      await signup(formData.name, formData.email, formData.password);
+      toast.success("Account created successfully! Please complete your profile.");
+      navigate('/profile');
     } catch (error: any) {
-      toast({
-        title: "Signup failed",
-        description: error.response?.data?.message || "Please check your information and try again",
-        variant: "destructive",
-      });
+      toast.error(error.response?.data?.message || "Failed to create account");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <div className="flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8 glass-card p-8 rounded-xl">
-          <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold gradient-text">
-              Create your account
-            </h2>
-            <p className="mt-2 text-center text-sm text-content-secondary">
-              Already have an account?{' '}
-              <Link to="/login" className="font-medium text-neon-blue hover:text-neon-blue/80">
-                Sign in
-              </Link>
-            </p>
-          </div>
-          
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  autoComplete="name"
-                  className="mt-1"
-                  {...register('name')}
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-500">{errors.name.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="email">Email address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  className="mt-1"
-                  {...register('email')}
-                />
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="new-password"
-                  className="mt-1"
-                  {...register('password')}
-                />
-                {errors.password && (
-                  <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  className="mt-1"
-                  {...register('confirmPassword')}
-                />
-                {errors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-500">{errors.confirmPassword.message}</p>
-                )}
-              </div>
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-full max-w-md p-8 space-y-8 bg-surface-dark rounded-xl shadow-lg">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-content-primary">Create Account</h1>
+          <p className="mt-2 text-content-secondary">Join our community of innovators</p>
+        </div>
 
-            <div>
-              <Button
-                type="submit"
-                className="w-full bg-neon-purple hover:bg-neon-purple/80 text-white py-6"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Creating account...' : 'Create account'}
-              </Button>
-            </div>
-          </form>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input
+              id="name"
+              name="name"
+              type="text"
+              required
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Enter your full name"
+              className="bg-surface-dark/50 border-white/10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="Enter your email"
+              className="bg-surface-dark/50 border-white/10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Create a password"
+              className="bg-surface-dark/50 border-white/10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              placeholder="Confirm your password"
+              className="bg-surface-dark/50 border-white/10"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full bg-neon-purple hover:bg-neon-purple/80"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Account...
+              </>
+            ) : (
+              'Create Account'
+            )}
+          </Button>
+        </form>
+
+        <div className="text-center text-sm">
+          <p className="text-content-secondary">
+            Already have an account?{' '}
+            <button
+              onClick={() => navigate('/login')}
+              className="text-neon-purple hover:text-neon-purple/80"
+            >
+              Sign in
+            </button>
+          </p>
         </div>
       </div>
-      
-      <Footer />
     </div>
   );
 };

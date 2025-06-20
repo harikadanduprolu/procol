@@ -15,6 +15,9 @@ export interface IProject extends Document {
   fundingGoal?: number;
   currentFunding?: number;
   deadline?: Date;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  duration?: string;
+  image?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,7 +40,14 @@ const ProjectSchema: Schema = new Schema(
     demoUrl: { type: String },
     fundingGoal: { type: Number },
     currentFunding: { type: Number, default: 0 },
-    deadline: { type: Date }
+    deadline: { type: Date },
+    difficulty: { 
+      type: String, 
+      enum: ['easy', 'medium', 'hard'],
+      default: 'medium'
+    },
+    duration: { type: String },
+    image: { type: String }
   },
   { timestamps: true }
 );

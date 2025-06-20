@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,105 +6,338 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, Users, Folder } from 'lucide-react';
+import { Send, Users, Folder, CheckCheck, Check, Clock, AlertCircle } from 'lucide-react';
+import { useToast } from "@/components/ui/use-toast";
+import { Spinner } from "@/components/ui/spinner";
+import { useSocket } from '@/contexts/SocketContext';
+import { messageApi } from '@/services/api';
+import { Message as MessageType } from '@/services/socket';
+import { format, isToday, isYesterday } from 'date-fns';
+
+// Type definitions for our chat state
+interface ChatUser {
+  id: string;
+  name: string;
+  avatar?: string;
+  online?: boolean;
+  lastSeen?: Date;
+}
+
+interface ChatConversation {
+  id: string;
+  name: string;
+  avatar?: string;
+  type: 'team' | 'project' | 'direct';
+  lastMessage?: string;
+  timestamp?: Date;
+  unread: number;
+  participants?: ChatUser[];
+  messages: MessageType[];
+  isTyping?: boolean;
+}
 
 const Chat = () => {
+  const { toast } = useToast();
+  const { isConnected, messages: socketMessages, sendMessage } = useSocket();
   const [messageText, setMessageText] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  // Mock data for chats - in a real app, this would come from a database
-  const teamChats = [
-    {
-      id: 1,
-      name: "UI/UX Design Team",
-      avatar: "",
-      lastMessage: "Let's meet tomorrow to discuss the new wireframes",
-      timestamp: "2h ago",
-      unread: 3,
-      messages: [
-        { id: 1, sender: "Jane Smith", content: "Hi everyone, I've uploaded the wireframes", timestamp: "Yesterday, 4:30 PM", isMine: false },
-        { id: 2, sender: "Alex Wong", content: "They look great! I have some feedback on the navigation", timestamp: "Yesterday, 5:45 PM", isMine: false },
-        { id: 3, sender: "You", content: "I'll review them tonight", timestamp: "Yesterday, 6:20 PM", isMine: true },
-      ]
-    },
-    {
-      id: 2,
-      name: "Frontend Development",
-      avatar: "",
-      lastMessage: "Updated the component library",
-      timestamp: "1d ago",
-      unread: 0,
-      messages: [
-        { id: 1, sender: "David Lee", content: "I've pushed the new component updates", timestamp: "Monday, 10:15 AM", isMine: false },
-        { id: 2, sender: "You", content: "Great work! The buttons look much better now", timestamp: "Monday, 11:30 AM", isMine: true },
-      ]
-    },
-  ];
-  
-  const projectChats = [
-    {
-      id: 1,
-      name: "Campus Navigation App",
-      avatar: "",
-      lastMessage: "The API integration is complete",
-      timestamp: "3h ago",
-      unread: 5,
-      messages: [
-        { id: 1, sender: "Project Lead", content: "Team, we're on track for the demo next week", timestamp: "Today, 9:00 AM", isMine: false },
-        { id: 2, sender: "Backend Dev", content: "API endpoints are now documented", timestamp: "Today, 11:30 AM", isMine: false },
-        { id: 3, sender: "You", content: "I'll start integrating them today", timestamp: "Today, 12:15 PM", isMine: true },
-      ]
-    },
-    {
-      id: 2,
-      name: "Sustainable Energy Project",
-      avatar: "",
-      lastMessage: "Research findings attached",
-      timestamp: "2d ago",
-      unread: 0,
-      messages: [
-        { id: 1, sender: "Research Lead", content: "Here are the latest findings from our survey", timestamp: "Monday, 3:45 PM", isMine: false },
-        { id: 2, sender: "You", content: "This is great data, it will help with our projections", timestamp: "Monday, 4:30 PM", isMine: true },
-      ]
-    },
-  ];
-
-  const [activeChat, setActiveChat] = useState(teamChats[0]);
+  // State for conversations
+  const [teamChats, setTeamChats] = useState<ChatConversation[]>([]);
+  const [projectChats, setProjectChats] = useState<ChatConversation[]>([]);
+  const [activeChat, setActiveChat] = useState<ChatConversation | null>(null);
   const [chatType, setChatType] = useState('teams');
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Ref for message container to auto-scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Format timestamp for display
+  const formatTimestamp = (date: Date): string => {
+    if (isToday(date)) {
+      return format(date, 'h:mm a');
+    } else if (isYesterday(date)) {
+      return 'Yesterday, ' + format(date, 'h:mm a');
+    } else {
+      return format(date, 'MMM d, h:mm a');
+    }
+  };
+  
+  // Load conversations on component mount
+  useEffect(() => {
+    const fetchConversations = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const response = await messageApi.getConversations();
+        const conversations = response.data;
+        
+        // Separate team and project chats
+        const teams: ChatConversation[] = [];
+        const projects: ChatConversation[] = [];
+        
+        conversations.forEach((convo: any) => {
+          const formatted: ChatConversation = {
+            id: convo._id,
+            name: convo.name,
+            avatar: convo.avatar,
+            type: convo.type,
+            lastMessage: convo.lastMessage?.content,
+            timestamp: convo.lastMessage?.timestamp ? new Date(convo.lastMessage.timestamp) : undefined,
+            unread: convo.unreadCount || 0,
+            participants: convo.participants,
+            messages: [],
+            isTyping: false
+          };
+          
+          if (convo.type === 'team') {
+            teams.push(formatted);
+          } else if (convo.type === 'project') {
+            projects.push(formatted);
+          }
+        });
+        
+        setTeamChats(teams);
+        setProjectChats(projects);
+        
+        // Set initial active chat if available
+        if (teams.length > 0) {
+          setActiveChat(teams[0]);
+          loadMessages(teams[0].id);
+        } else if (projects.length > 0) {
+          setActiveChat(projects[0]);
+          setChatType('projects');
+          loadMessages(projects[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching conversations:', err);
+        setError('Failed to load conversations. Please try again.');
+        toast({
+          title: "Error",
+          description: "Failed to load conversations. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchConversations();
+  }, []);
+  
+  // Listen for new messages from socket
+  useEffect(() => {
+    if (socketMessages.length > 0 && activeChat) {
+      const lastMessage = socketMessages[socketMessages.length - 1];
+      
+      // Check if message belongs to current conversation
+      const isForCurrentChat = lastMessage.recipient === activeChat.id || 
+                                lastMessage.sender === activeChat.id;
+      
+      if (isForCurrentChat) {
+        // Add message to active chat
+        setActiveChat(prev => {
+          if (!prev) return prev;
+          
+          const updatedMessages = [...prev.messages, {
+            ...lastMessage,
+            isMine: false
+          }];
+          
+          return {
+            ...prev,
+            messages: updatedMessages,
+            lastMessage: lastMessage.content,
+            timestamp: lastMessage.timestamp as Date,
+            isTyping: false
+          };
+        });
+        
+        // Mark message as read
+        markMessageAsRead(lastMessage.sender);
+      } else {
+        // Update unread count for the relevant chat
+        updateUnreadCount(lastMessage);
+      }
+    }
+  }, [socketMessages]);
+  
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [activeChat?.messages]);
+
+  // Load messages for a conversation
+  const loadMessages = async (conversationId: string) => {
+    if (!conversationId) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await messageApi.getMessages(conversationId);
+      const messages = response.data.map((msg: any) => ({
+        id: msg._id,
+        sender: msg.sender._id,
+        senderName: msg.sender.name,
+        recipient: msg.recipient,
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+        read: msg.read,
+        isMine: msg.isMine
+      }));
+      
+      // Update active chat with messages
+      if (activeChat) {
+        setActiveChat(prev => {
+          if (!prev) return prev;
+          return { ...prev, messages, unread: 0 };
+        });
+      }
+      
+      // Mark messages as read
+      if (conversationId) {
+        markMessageAsRead(conversationId);
+      }
+    } catch (err) {
+      console.error('Error loading messages:', err);
+      setError('Failed to load messages. Please try again.');
+      toast({
+        title: "Error",
+        description: "Failed to load messages. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Mark messages as read
+  const markMessageAsRead = async (conversationId: string) => {
+    try {
+      await messageApi.markAsRead(conversationId);
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
+    }
+  };
+  
+  // Update unread count for a conversation
+  const updateUnreadCount = (message: MessageType) => {
+    const updateChats = (chats: ChatConversation[], chatType: 'team' | 'project') => {
+      return chats.map(chat => {
+        if (chat.id === message.sender || chat.id === message.recipient) {
+          return {
+            ...chat,
+            unread: chat.unread + 1,
+            lastMessage: message.content,
+            timestamp: message.timestamp as Date
+          };
+        }
+        return chat;
+      });
+    };
+    
+    setTeamChats(prev => updateChats(prev, 'team'));
+    setProjectChats(prev => updateChats(prev, 'project'));
+  };
+  
+  // Handle sending typing indicator
+  const handleTyping = () => {
+    if (!activeChat || !isConnected) return;
+    
+    // Clear existing timeout if any
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+    
+    // Send typing indicator
+    // This would normally be sent through Socket.IO
+    // socket.emit('typing', { recipient: activeChat.id });
+    
+    // Set timeout to clear typing indicator after 2 seconds
+    const timeout = setTimeout(() => {
+      // socket.emit('stopTyping', { recipient: activeChat.id });
+    }, 2000);
+    
+    setTypingTimeout(timeout);
+  };
+  
   const handleSendMessage = () => {
-    if (!messageText.trim()) return;
+    if (!messageText.trim() || !activeChat || !isConnected) return;
     
-    // In a real app, this would send the message to a backend
-    console.log("Sending message:", messageText);
-    
-    // For demo purposes, we'll add the message to the current chat
+    // Create message object
     const newMessage = {
-      id: activeChat.messages.length + 1,
-      sender: "You",
+      id: crypto.randomUUID(),
+      sender: 'current-user-id', // This would be the current user's ID
+      recipient: activeChat.id,
       content: messageText,
-      timestamp: "Just now",
+      timestamp: new Date(),
+      read: false,
       isMine: true
     };
     
-    // Update the active chat
-    setActiveChat({
-      ...activeChat,
-      messages: [...activeChat.messages, newMessage]
-    });
+    // Send message through socket
+    const success = sendMessage(activeChat.id, messageText);
     
-    // Clear the input
-    setMessageText('');
+    if (success) {
+      // Update the local state with the new message
+      setActiveChat(prev => {
+        if (!prev) return prev;
+        
+        return {
+          ...prev,
+          messages: [...prev.messages, newMessage],
+          lastMessage: messageText,
+          timestamp: new Date()
+        };
+      });
+      
+      // Save message to database via API
+      try {
+        messageApi.sendMessage({
+          recipient: activeChat.id,
+          content: messageText
+        });
+      } catch (err) {
+        console.error('Error saving message:', err);
+        toast({
+          title: "Warning",
+          description: "Message sent but may not be saved. Please try again if it doesn't appear.",
+          variant: "destructive"
+        });
+      }
+      
+      // Clear the input
+      setMessageText('');
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please check your connection and try again.",
+        variant: "destructive"
+      });
+    }
   };
-
+  
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    } else {
+      // Send typing indicator
+      handleTyping();
     }
   };
-
-  const selectChat = (chat: any) => {
-    setActiveChat(chat);
+  
+  const selectChat = (chat: ChatConversation) => {
+    if (activeChat?.id !== chat.id) {
+      setActiveChat(chat);
+      loadMessages(chat.id);
+    }
   };
 
   return (
@@ -115,8 +348,40 @@ const Chat = () => {
         <h1 className="text-3xl font-bold gradient-text mb-6">Messages</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-16rem)] relative">
+          {/* Loading State */}
+          {isLoading && !activeChat && (
+            <div className="col-span-1 lg:col-span-4 flex items-center justify-center h-[calc(100vh-20rem)]">
+              <div className="flex flex-col items-center">
+                <Spinner size="lg" />
+                <p className="mt-4 text-muted-foreground">Loading conversations...</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Error State */}
+          {error && !isLoading && !activeChat && (
+            <div className="col-span-1 lg:col-span-4 flex items-center justify-center h-[calc(100vh-20rem)]">
+              <div className="flex flex-col items-center text-center">
+                <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+                <h3 className="text-xl font-medium mb-2">Error Loading Conversations</h3>
+                <p className="text-muted-foreground mb-4">{error}</p>
+                <Button onClick={() => window.location.reload()}>
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {/* Connection Status */}
+          {!isConnected && (
+            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-yellow-900/80 text-yellow-200 py-2 px-4 rounded-md flex items-center gap-2 z-50">
+              <AlertCircle className="h-4 w-4" />
+              <span>You are offline. Messages won't be sent in real-time.</span>
+            </div>
+          )}
+          
           {/* Chat List */}
-          <div className="lg:col-span-1 overflow-hidden relative z-10">
+          <div className={`lg:col-span-1 overflow-hidden relative z-10 ${(isLoading && !activeChat) || (error && !activeChat) ? 'hidden' : ''}`}>
             <Tabs defaultValue="teams" className="w-full h-full flex flex-col" onValueChange={setChatType}>
               <TabsList className="w-full mb-4">
                 <TabsTrigger value="teams" className="flex-1"><Users className="mr-2 h-4 w-4" /> Teams</TabsTrigger>
@@ -226,6 +491,18 @@ const Chat = () => {
                     
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-24rem)]">
+                      {isLoading && (
+                        <div className="flex justify-center py-8">
+                          <Spinner />
+                        </div>
+                      )}
+                      
+                      {!isLoading && activeChat.messages.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No messages yet. Start the conversation!</p>
+                        </div>
+                      )}
+                      
                       {activeChat.messages.map(message => (
                         <div key={message.id} className={`flex ${message.isMine ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[70%] rounded-lg p-3 ${message.isMine 
@@ -236,27 +513,61 @@ const Chat = () => {
                               <div className="font-medium text-sm mb-1">{message.sender}</div>
                             )}
                             <div>{message.content}</div>
-                            <div className="text-xs opacity-70 mt-1 text-right">{message.timestamp}</div>
+                            <div className="flex items-center justify-end gap-1 text-xs opacity-70 mt-1">
+                              {message.timestamp instanceof Date 
+                                ? formatTimestamp(message.timestamp) 
+                                : typeof message.timestamp === 'string' 
+                                  ? message.timestamp
+                                  : 'Just now'
+                              }
+                              
+                              {message.isMine && (
+                                <span className="ml-1">
+                                  {message.read ? (
+                                    <CheckCheck className="h-3 w-3 text-neon-purple" />
+                                  ) : (
+                                    <Check className="h-3 w-3" />
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
+                      
+                      {/* Typing indicator */}
+                      {activeChat.isTyping && (
+                        <div className="flex justify-start">
+                          <div className="rounded-lg p-3 bg-zinc-800/30 text-foreground max-w-[70%]">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"></div>
+                              <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                              <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Invisible element for auto-scroll */}
+                      <div ref={messagesEndRef} />
                     </div>
                     
                     {/* Message Input */}
                     <div className="p-4 border-t border-zinc-800 relative z-20">
                       <div className="flex gap-2">
                         <Textarea 
-                          placeholder="Type your message..." 
+                          placeholder={isConnected ? "Type your message..." : "Connect to send messages"}
                           className="min-h-[60px]"
                           value={messageText}
                           onChange={(e) => setMessageText(e.target.value)}
+                          disabled={!isConnected}
                           onKeyDown={handleKeyDown}
                         />
                         <Button 
                           className="bg-neon-purple hover:bg-neon-purple/80" 
                           size="icon"
                           onClick={handleSendMessage}
-                          disabled={!messageText.trim()}
+                          disabled={!messageText.trim() || !isConnected}
                         >
                           <Send size={18} />
                         </Button>

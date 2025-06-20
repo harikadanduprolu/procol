@@ -11,6 +11,9 @@ const projectSchema = z.object({
   githubUrl: z.string().url().optional(),
   demoUrl: z.string().url().optional(),
   fundingGoal: z.number().min(0).optional(),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  duration: z.string().optional(),
+  image: z.string().optional(),
 });
 
 // Utility to check ownership
@@ -24,10 +27,25 @@ export const createProject = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const projectData = projectSchema.parse(req.body);
+    // Parse tags if they're sent as a JSON string
+    let projectData = { ...req.body };
+    if (projectData.tags && typeof projectData.tags === 'string') {
+      try {
+        projectData.tags = JSON.parse(projectData.tags);
+      } catch (error) {
+        return res.status(400).json({ message: 'Invalid tags format' });
+      }
+    }
+
+    // Add image path if file was uploaded
+    if (req.file) {
+      projectData.image = `/uploads/${req.file.filename}`;
+    }
+
+    const validatedData = projectSchema.parse(projectData);
 
     const project = new Project({
-      ...projectData,
+      ...validatedData,
       owner: req.user._id,
       team: [req.user._id],
     });
@@ -45,23 +63,108 @@ export const createProject = async (req: Request, res: Response) => {
 
 export const getProjects = async (req: Request, res: Response) => {
   try {
-    const { category, status, search } = req.query;
-    const query: any = {};
+    const { 
+      category, 
+      status, 
+      search, 
+      tags, 
+      difficulty, 
+      duration, 
+      sort,
+      page = '1',
+      limit = '10'
+    } = req.query;
 
+    const query: any = {};
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build query
     if (category) query.category = category;
     if (status) query.status = status;
-    if (search) query.$text = { $search: search as string };
+    
+    // Handle text search
+    if (search) {
+      try {
+        query.$text = { $search: search as string };
+      } catch (error) {
+        console.warn('Text search failed, falling back to regex search:', error);
+        query.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } }
+        ];
+      }
+    }
+    
+    // Filter by tags
+    if (tags) {
+      const tagArray = (tags as string).split(',');
+      if (tagArray.length > 0) {
+        query.tags = { $in: tagArray };
+      }
+    }
+    
+    // Filter by difficulty
+    if (difficulty) {
+      query.difficulty = difficulty;
+    }
+    
+    // Filter by duration
+    if (duration) {
+      query.duration = duration;
+    }
 
+    // Determine sort order
+    let sortOption = {};
+    if (sort) {
+      switch (sort) {
+        case 'newest':
+          sortOption = { createdAt: -1 };
+          break;
+        case 'popular':
+          sortOption = { team: -1 }; // Sort by team size (popularity)
+          break;
+        case 'deadline':
+          sortOption = { deadline: 1 }; // Sort by deadline (ascending)
+          break;
+        default:
+          sortOption = { createdAt: -1 };
+      }
+    } else {
+      sortOption = { createdAt: -1 }; // Default sort by newest
+    }
+
+    // Get total count for pagination
+    const total = await Project.countDocuments(query);
+
+    // Fetch projects with pagination
     const projects = await Project.find(query)
       .populate('owner', 'name email avatar')
       .populate('team', 'name email avatar')
-      .populate('mentors', 'name email avatar')
-      .sort({ createdAt: -1 });
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum);
 
-    res.json(projects);
+    res.json({
+      projects,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (error) {
     console.error('Error fetching projects:', error);
-    res.status(500).json({ message: 'Error fetching projects' });
+    if (error instanceof Error) {
+      res.status(500).json({ 
+        message: 'Error fetching projects',
+        error: error.message 
+      });
+    } else {
+      res.status(500).json({ message: 'Error fetching projects' });
+    }
   }
 };
 
@@ -69,8 +172,7 @@ export const getProject = async (req: Request, res: Response) => {
   try {
     const project = await Project.findById(req.params.id)
       .populate('owner', 'name email avatar')
-      .populate('team', 'name email avatar')
-      .populate('mentors', 'name email avatar');
+      .populate('team', 'name email avatar');
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
@@ -89,7 +191,22 @@ export const updateProject = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const projectData = projectSchema.parse(req.body);
+    // Parse tags if they're sent as a JSON string
+    let projectData = { ...req.body };
+    if (projectData.tags && typeof projectData.tags === 'string') {
+      try {
+        projectData.tags = JSON.parse(projectData.tags);
+      } catch (error) {
+        return res.status(400).json({ message: 'Invalid tags format' });
+      }
+    }
+
+    // Add image path if file was uploaded
+    if (req.file) {
+      projectData.image = `/uploads/${req.file.filename}`;
+    }
+
+    const validatedData = projectSchema.parse(projectData);
     const project = await Project.findById(req.params.id) as IProject | null;
 
     if (!project) {
@@ -100,7 +217,7 @@ export const updateProject = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    Object.assign(project, projectData);
+    Object.assign(project, validatedData);
     await project.save();
 
     res.json(project);

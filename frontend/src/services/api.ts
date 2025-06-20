@@ -28,9 +28,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      const currentPath = window.location.pathname;
+      if (!currentPath.includes('/login') && !currentPath.includes('/signup')) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -49,6 +51,9 @@ export const authApi = {
   
   updateProfile: (data: any) => 
     api.put('/auth/profile', data),
+
+  getTeams: () =>
+    api.get('/auth/teams'),
 };
 
 // Project API
@@ -59,8 +64,12 @@ export const projectApi = {
   getById: (id: string) => 
     api.get(`/projects/${id}`),
   
-  create: (data: any) => 
-    api.post('/projects', data),
+  create: (data: FormData) => 
+    api.post('/projects', data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
   
   update: (id: string, data: any) => 
     api.put(`/projects/${id}`, data),

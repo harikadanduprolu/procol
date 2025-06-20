@@ -8,6 +8,7 @@ interface ApiResponse<T> {
 }
 
 interface ApiError {
+  response: any;
   message: string;
   status: number;
   errors?: Record<string, string[]>;

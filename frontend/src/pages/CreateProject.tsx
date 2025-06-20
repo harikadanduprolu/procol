@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
@@ -8,8 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ImagePlus, X, Plus, ArrowLeft, UploadCloud } from 'lucide-react';
+import { ImagePlus, X, Plus, ArrowLeft, UploadCloud, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { projectApi } from '@/services/api';
+import { useApiMutation } from '@/hooks/useApiMutation';
+
+interface ProjectResponse {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  image?: string;
+}
 
 const CreateProject = () => {
   const navigate = useNavigate();
@@ -34,9 +44,23 @@ const CreateProject = () => {
     'Environment', 'Arts', 'Social Impact', 'Business', 'Other'
   ];
   
-  const difficultyLevels = ['Easy', 'Medium', 'Hard', 'Expert'];
-  const durationOptions = ['1-2 weeks', '1 month', '3 months', '6 months', '1 year+'];
+  const difficultyLevels = ['easy', 'medium', 'hard'];
+  const durationOptions = ['1-3', '3-6', '6+'];
   const teamSizeOptions = ['1-2', '3-5', '6-10', '10+'];
+  
+  // Create project mutation
+  const createProjectMutation = useApiMutation<ProjectResponse, FormData>(
+    (data) => projectApi.create(data),
+    {
+      onSuccess: () => {
+        toast.success("Project created successfully!");
+        navigate('/projects');
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to create project");
+      }
+    }
+  );
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -83,7 +107,7 @@ const CreateProject = () => {
     }));
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
@@ -93,14 +117,26 @@ const CreateProject = () => {
       return;
     }
     
-    // In a real app, you'd send this data to your API
-    console.log('Submitting project:', projectData);
+    // Prepare data for API
+    const formData = new FormData();
+    formData.append('title', projectData.title);
+    formData.append('description', projectData.description);
+    formData.append('category', projectData.category);
+    formData.append('difficulty', projectData.difficulty);
+    formData.append('duration', projectData.duration);
     
-    // Show success message
-    toast.success("Project created successfully!");
+    // Add tags as JSON string
+    if (projectData.tags.length > 0) {
+      formData.append('tags', JSON.stringify(projectData.tags));
+    }
     
-    // Redirect to projects page
-    navigate('/projects');
+    // Add image if exists
+    if (projectData.image) {
+      formData.append('image', projectData.image);
+    }
+    
+    // Submit to API
+    createProjectMutation.mutate(formData);
   };
   
   return (
@@ -359,8 +395,16 @@ const CreateProject = () => {
                 <Button
                   type="submit"
                   className="bg-neon-purple hover:bg-neon-purple/80 text-white"
+                  disabled={createProjectMutation.isPending}
                 >
-                  Create Project
+                  {createProjectMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Project'
+                  )}
                 </Button>
               </div>
             </form>

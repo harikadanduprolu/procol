@@ -1,20 +1,51 @@
 import express from 'express';
-import { 
-  sendMessage, 
-  getMessages, 
-  getConversations,
-  markAsRead
-} from '../controllers/message';
 import { auth } from '../middleware/auth';
+import {
+  sendMessage,
+  sendTeamMessage,
+  sendProjectMessage,
+  getMessages,
+  getTeamMessages,
+  getProjectMessages,
+  getConversations,
+  addReaction,
+  removeReaction,
+  deleteMessage,
+  updateMessage,
+  markAllAsRead,
+  markAsRead,
+  getUnreadCount
+} from '../controllers/message';
 
 const router = express.Router();
 
-// All routes require authentication
+// Apply authentication middleware to all routes
 router.use(auth);
 
+// Direct messages
 router.post('/', sendMessage);
 router.get('/conversations', getConversations);
-router.get('/:userId', getMessages);
-router.put('/:userId/read', markAsRead);
+router.get('/:recipientId', getMessages);
+router.put('/:recipientId/read', markAsRead);
 
-export default router; 
+// Team messages
+router.post('/team/:teamId', sendTeamMessage);
+router.get('/team/:teamId', getTeamMessages);
+
+// Project messages
+router.post('/project/:projectId', sendProjectMessage);
+router.get('/project/:projectId', getProjectMessages);
+
+// Message actions
+router.put('/:messageId', updateMessage);
+router.delete('/:messageId', deleteMessage);
+
+// Reactions
+router.post('/:messageId/reaction', addReaction);
+router.delete('/:messageId/reaction', removeReaction);
+
+// Read status
+router.put('/all/read', markAllAsRead);
+router.get('/unread/count', getUnreadCount);
+
+export default router;

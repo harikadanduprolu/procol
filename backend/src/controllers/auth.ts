@@ -8,12 +8,26 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(2),
-  role: z.enum(['user', 'mentor', 'admin']).optional()
+  role: z.enum(['user', 'mentor', 'admin','funder']).optional()
 });
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string()
+});
+
+const updateProfileSchema = z.object({
+  name: z.string().min(2).optional(),
+  bio: z.string().optional(),
+  skills: z.array(z.string()).optional(),
+  institution: z.string().optional(),
+  location: z.string().optional(),
+  socials: z.object({
+    github: z.string().optional(),
+    linkedin: z.string().optional(),
+    twitter: z.string().optional(),
+    website: z.string().optional()
+  }).optional()
 });
 
 export const register = async (req: Request, res: Response) => {
@@ -102,12 +116,80 @@ export const login = async (req: Request, res: Response) => {
 
 export const getProfile = async (req: Request, res: Response) => {
   try {
-    const user = await User.findById(req.user?._id).select('-password');
+    const user = await User.findById(req.user?._id)
+      .select('-password')
+      .populate({
+        path: 'projects',
+        select: 'title description tags team image',
+        options: { limit: 6 }
+      })
+      .populate({
+        path: 'teams',
+        select: 'name role members projects',
+        options: { limit: 4 }
+      });
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // If user is a mentor, include mentoring data
+    if (user.role === 'mentor') {
+      await user.populate({
+        path: 'mentoring',
+        select: 'projects students reviews rating',
+        options: { limit: 4 }
+      });
+    }
+
     res.json(user);
   } catch (error) {
+    console.error('Error fetching profile:', error);
     res.status(500).json({ message: 'Error fetching profile' });
+  }
+};
+
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const updates = updateProfileSchema.parse(req.body);
+    const user = await User.findById(req.user?._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update user fields
+    Object.assign(user, updates);
+    await user.save();
+
+    // Return updated user without password
+    const updatedUser = await User.findById(user._id)
+      .select('-password')
+      .populate({
+        path: 'projects',
+        select: 'title description tags team image',
+        options: { limit: 6 }
+      })
+      .populate({
+        path: 'teams',
+        select: 'name role members projects',
+        options: { limit: 4 }
+      });
+
+    if (user.role === 'mentor') {
+      await updatedUser?.populate({
+        path: 'mentoring',
+        select: 'projects students reviews rating',
+        options: { limit: 4 }
+      });
+    }
+
+    res.json(updatedUser);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: error.errors[0].message });
+    }
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'Error updating profile' });
   }
 }; 

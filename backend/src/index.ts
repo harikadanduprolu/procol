@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import path from 'path';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -12,31 +13,60 @@ import teamRoutes from './routes/team';
 import fundingRoutes from './routes/funding';
 import messageRoutes from './routes/message';
 import notificationRoutes from './routes/notification';
-import profileRoutes from './routes/profile';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
+// Define allowed origins
+const allowedOrigins = ([
+  process.env.FRONTEND_URL,
+  process.env.SOCKET_CORS_ORIGIN,
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:8080'
+].filter(Boolean) as string[]);
+
+
 const io = new Server(httpServer, {
   cors: {
-    origin: [process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:8080'],
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
+// Export io instance
+export { io };
+
 // Middleware
 app.use(cors({
-  origin: [process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:8080'],
-  credentials: true
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/projecthub')
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/projecthub', {
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+})
+  .then(() => {
+    console.log('Connected to MongoDB');
+    // Start the server only after successful database connection
+    startServer(PORT);
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1); // Exit if cannot connect to database
+  });
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -70,7 +100,6 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/funding', fundingRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/profile', profileRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -93,6 +122,3 @@ const startServer = (port: number) => {
     }
   });
 };
-
-// Start the server
-startServer(PORT);

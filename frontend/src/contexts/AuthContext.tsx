@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '@/services/api';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface User {
   _id: string;
@@ -9,6 +9,15 @@ interface User {
   email: string;
   avatar?: string;
   role?: string;
+  bio?: string;
+  skills?: string[];
+  location?: string;
+  website?: string;
+  socialLinks?: {
+    github?: string;
+    linkedin?: string;
+    twitter?: string;
+  };
 }
 
 interface AuthContextType {
@@ -40,23 +49,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          // Fetch user data
-          const response = await authApi.getProfile();
-          setUser(response.data);
-        }
-      } catch (error) {
-        console.error('Authentication check failed:', error);
-        localStorage.removeItem('token');
-      } finally {
+  const checkAuthStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
         setIsLoading(false);
+        return;
       }
-    };
 
+      const response = await authApi.getProfile();
+      setUser(response.data);
+    } catch (error: any) {
+      console.error('Authentication check failed:', error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        setUser(null);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     checkAuthStatus();
   }, []);
 
@@ -69,19 +83,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('token', token);
       setUser(user);
       
-      toast({
-        title: "Login successful",
-        description: "Welcome back!",
-      });
-      
-      navigate('/');
+      toast.success("Welcome back!");
+      navigate('/profile');
     } catch (error: any) {
       console.error('Login failed:', error);
-      toast({
-        title: "Login failed",
-        description: error.response?.data?.message || "Invalid credentials",
-        variant: "destructive",
-      });
+      toast.error(error.response?.data?.message || "Invalid credentials");
       throw error;
     } finally {
       setIsLoading(false);
@@ -97,19 +103,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('token', token);
       setUser(user);
       
-      toast({
-        title: "Account created",
-        description: "Your account has been created successfully!",
-      });
-      
-      navigate('/');
+      toast.success("Account created! Please complete your profile.");
+      navigate('/profile');
     } catch (error: any) {
       console.error('Signup failed:', error);
-      toast({
-        title: "Signup failed",
-        description: error.response?.data?.message || "Failed to create account",
-        variant: "destructive",
-      });
+      toast.error(error.response?.data?.message || "Failed to create account");
       throw error;
     } finally {
       setIsLoading(false);
@@ -119,12 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    
-    toast({
-      title: "Logged out",
-      description: "You have been logged out successfully",
-    });
-    
+    toast.success("Logged out successfully");
     navigate('/');
   };
 
