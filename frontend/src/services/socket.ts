@@ -71,7 +71,9 @@ class SocketService {
   }
 
   private setupEventListeners() {
-    if (!this.socket) return;
+    if (!this.socket) {
+      return;
+    }
 
     // Connection events
     this.socket.on('connect', () => {
@@ -113,7 +115,9 @@ class SocketService {
   // Get user ID from JWT token
   private getUserIdFromToken(): string | null {
     const token = localStorage.getItem('token');
-    if (!token) return null;
+    if (!token) {
+      return null;
+    }
 
     try {
       // Parse the JWT token payload
