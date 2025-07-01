@@ -14,7 +14,8 @@ import {
   updateMessage,
   markAllAsRead,
   markAsRead,
-  getUnreadCount
+  getUnreadCount,
+  createConversation
 } from '../controllers/message';
 
 const router = express.Router();
@@ -47,5 +48,8 @@ router.delete('/:messageId/reaction', removeReaction);
 // Read status
 router.put('/all/read', markAllAsRead);
 router.get('/unread/count', getUnreadCount);
+
+// New route
+router.post('/conversations', createConversation);
 
 export default router;

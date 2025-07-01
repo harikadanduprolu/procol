@@ -54,6 +54,9 @@ export const authApi = {
 
   getTeams: () =>
     api.get('/teams/my'),
+
+  searchUsers: (query: string) =>
+    api.get(`/auth/users/search?query=${encodeURIComponent(query)}`),
 };
 
 // Project API
@@ -137,11 +140,20 @@ export const messageApi = {
   getMessages: (userId: string) => 
     api.get(`/messages/${userId}`),
   
-  sendMessage: (data: { recipient: string; content: string }) => 
+  sendMessage: (data: { recipientId: string; content: string }) => 
     api.post('/messages', data),
+
+  sendTeamMessage: (teamId: string, content: string) =>
+    api.post(`/messages/team/${teamId}`, { content }),
+
+  sendProjectMessage: (projectId: string, content: string) =>
+    api.post(`/messages/project/${projectId}`, { content }),
   
   markAsRead: (userId: string) => 
     api.put(`/messages/${userId}/read`),
+  
+  createConversation: (data: { userId: string }) =>
+    api.post('/messages/conversations', data),
 };
 
 // Notification API

@@ -23,6 +23,7 @@ import CreateProject from "./pages/CreateProject";
 import BecomeMentor from "./pages/BecomeMentor";
 import Chat from "./pages/Chat";
 import Notifications from "./pages/Notifications";
+import CreateTeam from './pages/CreateTeams';
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,11 @@ const App = () => (
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/teams" element={<Teams />} />
             <Route path="/teams/:id" element={<TeamMemberDetail />} />
+            <Route path="/teams/create" element={
+              <ProtectedRoute>
+                <CreateTeam />
+              </ProtectedRoute>
+            } />
             <Route path="/mentors" element={<Mentors />} />
             <Route path="/mentors/:id" element={<MentorDetail />} />
             <Route path="/funding" element={<Funding />} />

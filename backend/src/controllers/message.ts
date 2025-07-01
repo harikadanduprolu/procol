@@ -688,3 +688,47 @@ export const getUnreadCount = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error getting unread count' });
   }
 };
+
+/**
+ * Create a conversation
+ * @route POST /api/messages/conversation
+ */
+export const createConversation = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user && (req.user as any)._id;
+    const { userId: otherUserId } = req.body;
+    if (!userId || !otherUserId) {
+      return res.status(400).json({ message: 'Missing userId' });
+    }
+    if (userId.toString() === otherUserId) {
+      return res.status(400).json({ message: 'Cannot start a conversation with yourself' });
+    }
+    // Find existing messages between the two users
+    const messages = await Message.find({
+      recipientType: 'user',
+      $or: [
+        { sender: userId, recipientId: otherUserId },
+        { sender: otherUserId, recipientId: userId }
+      ]
+    }).sort({ createdAt: 1 });
+    // Get the other user's info
+    const otherUser = await User.findById(otherUserId).select('name avatar email');
+    if (!otherUser) return res.status(404).json({ message: 'User not found' });
+    // Compose conversation object
+    const conversation = {
+      _id: [userId, otherUserId].sort().join('-'),
+      name: otherUser.name,
+      avatar: otherUser.avatar,
+      type: 'direct',
+      participants: [
+        { id: userId, name: req.user?.name, avatar: req.user?.avatar },
+        { id: otherUserId, name: otherUser.name, avatar: otherUser.avatar }
+      ],
+      messages,
+      lastMessage: messages.length ? messages[messages.length - 1] : null
+    };
+    res.json({ conversation });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating conversation' });
+  }
+};

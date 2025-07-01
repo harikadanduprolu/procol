@@ -328,15 +328,19 @@ const Profile = () => {
                     <Github size={16} className="text-neon-blue" />
                     {isEditing ? (
                       <Input 
-                      value={editedUser?.socials?.github || ''}
+                        value={editedUser?.socials?.github || ''}
                         onChange={(e) => handleSocialChange('github', e.target.value)}
                         className="flex-grow bg-surface-dark/50"
                         placeholder="GitHub username"
                       />
                     ) : (
-                      <a href={`https://${user.socials.github}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-blue">
-                        {user?.socials?.github}
-                      </a>
+                      user?.socials?.github ? (
+                        <a href={`https://${user.socials.github}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-blue">
+                          {user.socials.github}
+                        </a>
+                      ) : (
+                        <span className="text-content-secondary">Not provided</span>
+                      )
                     )}
                   </div>
                   
@@ -344,15 +348,19 @@ const Profile = () => {
                     <Linkedin size={16} className="text-neon-purple" />
                     {isEditing ? (
                       <Input 
-                        value={editedUser.socials.linkedin}
+                        value={editedUser?.socials?.linkedin || ''}
                         onChange={(e) => handleSocialChange('linkedin', e.target.value)}
                         className="flex-grow bg-surface-dark/50"
                         placeholder="LinkedIn profile"
                       />
                     ) : (
-                      <a href={`https://${user.socials.linkedin}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-purple">
-                        {user.socials.linkedin}
-                      </a>
+                      user?.socials?.linkedin ? (
+                        <a href={`https://${user.socials.linkedin}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-purple">
+                          {user.socials.linkedin}
+                        </a>
+                      ) : (
+                        <span className="text-content-secondary">Not provided</span>
+                      )
                     )}
                   </div>
                   
@@ -360,15 +368,19 @@ const Profile = () => {
                     <Twitter size={16} className="text-neon-blue" />
                     {isEditing ? (
                       <Input 
-                        value={editedUser.socials.twitter}
+                        value={editedUser?.socials?.twitter || ''}
                         onChange={(e) => handleSocialChange('twitter', e.target.value)}
                         className="flex-grow bg-surface-dark/50"
                         placeholder="Twitter profile"
                       />
                     ) : (
-                      <a href={`https://${user.socials.twitter}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-blue">
-                        {user.socials.twitter}
-                      </a>
+                      user?.socials?.twitter ? (
+                        <a href={`https://${user.socials.twitter}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-blue">
+                          {user.socials.twitter}
+                        </a>
+                      ) : (
+                        <span className="text-content-secondary">Not provided</span>
+                      )
                     )}
                   </div>
                   
@@ -376,15 +388,19 @@ const Profile = () => {
                     <LinkIcon size={16} className="text-neon-purple" />
                     {isEditing ? (
                       <Input 
-                        value={editedUser.socials.website}
+                        value={editedUser?.socials?.website || ''}
                         onChange={(e) => handleSocialChange('website', e.target.value)}
                         className="flex-grow bg-surface-dark/50"
                         placeholder="Personal website"
                       />
                     ) : (
-                      <a href={`https://${user.socials.website}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-purple">
-                        {user.socials.website}
-                      </a>
+                      user?.socials?.website ? (
+                        <a href={`https://${user.socials.website}`} target="_blank" rel="noopener noreferrer" className="text-content-secondary hover:text-neon-purple">
+                          {user.socials.website}
+                        </a>
+                      ) : (
+                        <span className="text-content-secondary">Not provided</span>
+                      )
                     )}
                   </div>
                   
@@ -440,10 +456,12 @@ const Profile = () => {
             <TabsContent value="teams">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-content-primary">My Teams</h2>
-                <Button variant="outline" className="border-neon-blue text-neon-blue hover:bg-neon-blue/10 gap-2">
-                  <Plus size={16} />
-                  Create New Team
-                </Button>
+                <CustomLink to="/teams/create">
+                  <Button variant="outline" className="border-neon-blue text-neon-blue hover:bg-neon-blue/10 gap-2">
+                    <Plus size={16} />
+                    Create New Team
+                  </Button>
+                </CustomLink>
               </div>
               
               {userTeams && userTeams.length > 0 ? (
@@ -482,10 +500,12 @@ const Profile = () => {
                 <div className="glass-card rounded-xl p-8 text-center">
                   <h3 className="text-xl font-semibold text-content-primary mb-2">No teams yet</h3>
                   <p className="text-content-secondary mb-6">Create a team or join an existing one to collaborate on projects.</p>
-                  <Button className="bg-neon-purple hover:bg-neon-purple/80 text-white gap-2">
-                    <Plus size={16} />
-                    Create New Team
-                  </Button>
+                  <CustomLink to="/teams/create">
+                    <Button className="bg-neon-purple hover:bg-neon-purple/80 text-white gap-2">
+                      <Plus size={16} />
+                      Create New Team
+                    </Button>
+                  </CustomLink>
                 </div>
               )}
             </TabsContent>

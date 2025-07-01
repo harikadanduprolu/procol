@@ -6,21 +6,28 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Send, Users, Folder, CheckCheck, Check, Clock, AlertCircle } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Spinner } from "@/components/ui/spinner";
 import { useSocket } from '@/contexts/SocketContext';
-import { messageApi } from '@/services/api';
+import { messageApi, authApi } from '@/services/api';
 import { Message as MessageType } from '@/services/socket';
 import { format, isToday, isYesterday } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
-// Type definitions for our chat state
 interface ChatUser {
-  id: string;
+  id?: string;
+  _id: string;
   name: string;
   avatar?: string;
   online?: boolean;
   lastSeen?: Date;
+}
+
+interface ChatMessage extends MessageType {
+  isMine?: boolean;
+  senderName?: string;
 }
 
 interface ChatConversation {
@@ -32,53 +39,46 @@ interface ChatConversation {
   timestamp?: Date;
   unread: number;
   participants?: ChatUser[];
-  messages: MessageType[];
+  messages: ChatMessage[];
   isTyping?: boolean;
 }
 
 const Chat = () => {
   const { toast } = useToast();
   const { isConnected, messages: socketMessages, sendMessage } = useSocket();
+  const { user: authUser } = useAuth();
   const [messageText, setMessageText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // State for conversations
+  const [searchText, setSearchText] = useState('');
+
   const [teamChats, setTeamChats] = useState<ChatConversation[]>([]);
   const [projectChats, setProjectChats] = useState<ChatConversation[]>([]);
   const [activeChat, setActiveChat] = useState<ChatConversation | null>(null);
   const [chatType, setChatType] = useState('teams');
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
-  
-  // Ref for message container to auto-scroll
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Format timestamp for display
+  const [userResults, setUserResults] = useState<ChatUser[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+
   const formatTimestamp = (date: Date): string => {
-    if (isToday(date)) {
-      return format(date, 'h:mm a');
-    } else if (isYesterday(date)) {
-      return 'Yesterday, ' + format(date, 'h:mm a');
-    } else {
-      return format(date, 'MMM d, h:mm a');
-    }
+    if (isToday(date)) return format(date, 'h:mm a');
+    if (isYesterday(date)) return 'Yesterday, ' + format(date, 'h:mm a');
+    return format(date, 'MMM d, h:mm a');
   };
-  
-  // Load conversations on component mount
+
   useEffect(() => {
     const fetchConversations = async () => {
       setIsLoading(true);
       setError(null);
-      
       try {
         const response = await messageApi.getConversations();
         const conversations = response.data;
-        
-        // Separate team and project chats
         const teams: ChatConversation[] = [];
         const projects: ChatConversation[] = [];
-        
+
         conversations.forEach((convo: any) => {
           const formatted: ChatConversation = {
             id: convo._id,
@@ -92,22 +92,15 @@ const Chat = () => {
             messages: [],
             isTyping: false
           };
-          
-          if (convo.type === 'team') {
-            teams.push(formatted);
-          } else if (convo.type === 'project') {
-            projects.push(formatted);
-          }
+          convo.type === 'team' ? teams.push(formatted) : convo.type === 'project' && projects.push(formatted);
         });
-        
+
         setTeamChats(teams);
         setProjectChats(projects);
-        
-        // Set initial active chat if available
-        if (teams.length > 0) {
+        if (teams.length) {
           setActiveChat(teams[0]);
           loadMessages(teams[0].id);
-        } else if (projects.length > 0) {
+        } else if (projects.length) {
           setActiveChat(projects[0]);
           setChatType('projects');
           loadMessages(projects[0].id);
@@ -115,73 +108,38 @@ const Chat = () => {
       } catch (err) {
         console.error('Error fetching conversations:', err);
         setError('Failed to load conversations. Please try again.');
-        toast({
-          title: "Error",
-          description: "Failed to load conversations. Please try again.",
-          variant: "destructive"
-        });
+        toast({ title: "Error", description: "Failed to load conversations.", variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
     };
-    
     fetchConversations();
   }, []);
-  
-  // Listen for new messages from socket
+
   useEffect(() => {
-    if (socketMessages.length > 0 && activeChat) {
+    if (socketMessages.length && activeChat) {
       const lastMessage = socketMessages[socketMessages.length - 1];
-      
-      // Check if message belongs to current conversation
-      const isForCurrentChat = lastMessage.recipient === activeChat.id || 
-                                lastMessage.sender === activeChat.id;
-      
+      const isForCurrentChat = lastMessage.recipient === activeChat.id || lastMessage.sender === activeChat.id;
       if (isForCurrentChat) {
-        // Add message to active chat
-        setActiveChat(prev => {
-          if (!prev) return prev;
-          
-          const updatedMessages = [...prev.messages, {
-            ...lastMessage,
-            isMine: false
-          }];
-          
-          return {
-            ...prev,
-            messages: updatedMessages,
-            lastMessage: lastMessage.content,
-            timestamp: lastMessage.timestamp as Date,
-            isTyping: false
-          };
-        });
-        
-        // Mark message as read
+        setActiveChat(prev => prev ? { ...prev, messages: [...prev.messages, { ...lastMessage, isMine: false }], lastMessage: lastMessage.content, timestamp: lastMessage.timestamp as Date, isTyping: false } : prev);
         markMessageAsRead(lastMessage.sender);
       } else {
-        // Update unread count for the relevant chat
         updateUnreadCount(lastMessage);
       }
     }
   }, [socketMessages]);
-  
-  // Scroll to bottom when messages change
+
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeChat?.messages]);
 
-  // Load messages for a conversation
   const loadMessages = async (conversationId: string) => {
     if (!conversationId) return;
-    
     setIsLoading(true);
     setError(null);
-    
     try {
       const response = await messageApi.getMessages(conversationId);
-      const messages = response.data.map((msg: any) => ({
+      const messages: ChatMessage[] = response.data.map((msg: any) => ({
         id: msg._id,
         sender: msg.sender._id,
         senderName: msg.sender.name,
@@ -189,35 +147,19 @@ const Chat = () => {
         content: msg.content,
         timestamp: new Date(msg.timestamp),
         read: msg.read,
-        isMine: msg.isMine
+        isMine: authUser && msg.sender._id === authUser._id
       }));
-      
-      // Update active chat with messages
-      if (activeChat) {
-        setActiveChat(prev => {
-          if (!prev) return prev;
-          return { ...prev, messages, unread: 0 };
-        });
-      }
-      
-      // Mark messages as read
-      if (conversationId) {
-        markMessageAsRead(conversationId);
-      }
+      if (activeChat) setActiveChat(prev => prev ? { ...prev, messages, unread: 0 } : prev);
+      markMessageAsRead(conversationId);
     } catch (err) {
       console.error('Error loading messages:', err);
-      setError('Failed to load messages. Please try again.');
-      toast({
-        title: "Error",
-        description: "Failed to load messages. Please try again.",
-        variant: "destructive"
-      });
+      setError('Failed to load messages.');
+      toast({ title: "Error", description: "Failed to load messages.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // Mark messages as read
+
   const markMessageAsRead = async (conversationId: string) => {
     try {
       await messageApi.markAsRead(conversationId);
@@ -225,114 +167,63 @@ const Chat = () => {
       console.error('Error marking messages as read:', err);
     }
   };
-  
-  // Update unread count for a conversation
+
   const updateUnreadCount = (message: MessageType) => {
-    const updateChats = (chats: ChatConversation[], chatType: 'team' | 'project') => {
-      return chats.map(chat => {
-        if (chat.id === message.sender || chat.id === message.recipient) {
-          return {
-            ...chat,
-            unread: chat.unread + 1,
-            lastMessage: message.content,
-            timestamp: message.timestamp as Date
-          };
-        }
-        return chat;
-      });
-    };
-    
-    setTeamChats(prev => updateChats(prev, 'team'));
-    setProjectChats(prev => updateChats(prev, 'project'));
+    const updateChats = (chats: ChatConversation[]) => chats.map(chat => (chat.id === message.sender || chat.id === message.recipient) ? { ...chat, unread: chat.unread + 1, lastMessage: message.content, timestamp: message.timestamp as Date } : chat);
+    setTeamChats(prev => updateChats(prev));
+    setProjectChats(prev => updateChats(prev));
   };
-  
-  // Handle sending typing indicator
+
   const handleTyping = () => {
     if (!activeChat || !isConnected) return;
-    
-    // Clear existing timeout if any
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
-    }
-    
-    // Send typing indicator
-    // This would normally be sent through Socket.IO
-    // socket.emit('typing', { recipient: activeChat.id });
-    
-    // Set timeout to clear typing indicator after 2 seconds
-    const timeout = setTimeout(() => {
-      // socket.emit('stopTyping', { recipient: activeChat.id });
-    }, 2000);
-    
+    if (typingTimeout) clearTimeout(typingTimeout);
+    const timeout = setTimeout(() => {}, 2000);
     setTypingTimeout(timeout);
   };
-  
-  const handleSendMessage = () => {
-    if (!messageText.trim() || !activeChat || !isConnected) return;
-    
-    // Create message object
-    const newMessage = {
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !activeChat || !isConnected || !authUser) return;
+    const newMessage: ChatMessage = {
       id: crypto.randomUUID(),
-      sender: 'current-user-id', // This would be the current user's ID
+      sender: authUser._id,
+      senderName: authUser.name,
       recipient: activeChat.id,
       content: messageText,
       timestamp: new Date(),
       read: false,
       isMine: true
     };
-    
-    // Send message through socket
+
     const success = sendMessage(activeChat.id, messageText);
-    
     if (success) {
-      // Update the local state with the new message
-      setActiveChat(prev => {
-        if (!prev) return prev;
-        
-        return {
-          ...prev,
-          messages: [...prev.messages, newMessage],
-          lastMessage: messageText,
-          timestamp: new Date()
-        };
-      });
-      
-      // Save message to database via API
+      setActiveChat(prev => prev ? { ...prev, messages: [...prev.messages, newMessage], lastMessage: messageText, timestamp: new Date() } : prev);
       try {
-        messageApi.sendMessage({
-          recipient: activeChat.id,
-          content: messageText
-        });
+        if (activeChat.type === 'team') {
+          await messageApi.sendTeamMessage(activeChat.id, messageText);
+        } else if (activeChat.type === 'project') {
+          await messageApi.sendProjectMessage(activeChat.id, messageText);
+        } else {
+          await messageApi.sendMessage({ recipientId: activeChat.id, content: messageText });
+        }
       } catch (err) {
         console.error('Error saving message:', err);
-        toast({
-          title: "Warning",
-          description: "Message sent but may not be saved. Please try again if it doesn't appear.",
-          variant: "destructive"
-        });
+        toast({ title: "Warning", description: "Message sent but may not be saved.", variant: "destructive" });
       }
-      
-      // Clear the input
       setMessageText('');
     } else {
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please check your connection and try again.",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to send message.", variant: "destructive" });
     }
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     } else {
-      // Send typing indicator
       handleTyping();
     }
   };
-  
+
   const selectChat = (chat: ChatConversation) => {
     if (activeChat?.id !== chat.id) {
       setActiveChat(chat);
@@ -340,14 +231,80 @@ const Chat = () => {
     }
   };
 
+  // User search handler
+  const handleUserSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(e.target.value);
+    if (e.target.value.length > 1) {
+      setSearchingUsers(true);
+      try {
+        const res = await authApi.searchUsers(e.target.value);
+        setUserResults(res.data.users || []);
+      } catch (err) {
+        setUserResults([]);
+      } finally {
+        setSearchingUsers(false);
+      }
+    } else {
+      setUserResults([]);
+    }
+  };
+
+  const startDirectChat = async (userId: string) => {
+    try {
+      const res = await messageApi.createConversation({ userId });
+      const convo = res.data.conversation;
+      setActiveChat({
+        id: convo._id,
+        name: convo.name,
+        avatar: convo.avatar,
+        type: 'direct',
+        lastMessage: convo.lastMessage?.content,
+        timestamp: convo.lastMessage?.timestamp ? new Date(convo.lastMessage.timestamp) : undefined,
+        unread: 0,
+        participants: convo.participants,
+        messages: [],
+        isTyping: false
+      });
+      loadMessages(convo._id);
+      setUserResults([]);
+      setSearchText('');
+    } catch (err) {
+      toast({ title: 'Error', description: 'Could not start chat', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950">
       <Navbar />
-      
       <div className="flex-1 flex flex-col container mx-auto px-4 pt-24 pb-16">
         <h1 className="text-3xl font-bold gradient-text mb-6">Messages</h1>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-16rem)] relative">
+
+        <Input
+          type="text"
+          placeholder="Search users or chats..."
+          value={searchText}
+          onChange={handleUserSearch}
+          className="mb-4 w-full"
+        />
+
+        {searchingUsers && <div className="mb-2 text-content-secondary">Searching users...</div>}
+        {userResults.length > 0 && (
+          <ul className="mb-4 bg-zinc-900 rounded shadow p-2 max-h-60 overflow-y-auto">
+            {userResults.map(user => (
+              <li
+                key={user._id}
+                className="p-2 hover:bg-zinc-800 cursor-pointer rounded flex items-center gap-2"
+                onClick={() => startDirectChat(user._id)}
+              >
+                <Avatar className="h-6 w-6">
+                  {user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : <AvatarFallback>{user.name.slice(0,2).toUpperCase()}</AvatarFallback>}
+                </Avatar>
+                <span>{user.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+<div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-16rem)] relative">
           {/* Loading State */}
           {isLoading && !activeChat && (
             <div className="col-span-1 lg:col-span-4 flex items-center justify-center h-[calc(100vh-20rem)]">
@@ -395,7 +352,7 @@ const Chat = () => {
                       {teamChats.map(chat => (
                         <div 
                           key={chat.id}
-                          className={`p-4 cursor-pointer hover:bg-accent/50 transition-colors ${activeChat.id === chat.id && chatType === 'teams' ? 'bg-accent' : ''}`}
+                          className={`p-4 cursor-pointer hover:bg-accent/50 transition-colors ${activeChat?.id === chat.id && chatType === 'teams' ? 'bg-accent' : ''}`}
                           onClick={() => {
                             selectChat(chat);
                             setChatType('teams');
@@ -410,7 +367,7 @@ const Chat = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-center">
                                 <h3 className="font-medium truncate">{chat.name}</h3>
-                                <span className="text-xs text-muted-foreground whitespace-nowrap">{chat.timestamp}</span>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">{chat.timestamp ? formatTimestamp(chat.timestamp) : ''}</span>
                               </div>
                               <p className="text-sm text-muted-foreground truncate">{chat.lastMessage}</p>
                             </div>
@@ -434,7 +391,7 @@ const Chat = () => {
                       {projectChats.map(chat => (
                         <div 
                           key={chat.id}
-                          className={`p-4 cursor-pointer hover:bg-accent/50 transition-colors ${activeChat.id === chat.id && chatType === 'projects' ? 'bg-accent' : ''}`}
+                          className={`p-4 cursor-pointer hover:bg-accent/50 transition-colors ${activeChat?.id === chat.id && chatType === 'projects' ? 'bg-accent' : ''}`}
                           onClick={() => {
                             selectChat(chat);
                             setChatType('projects');
@@ -449,7 +406,7 @@ const Chat = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-center">
                                 <h3 className="font-medium truncate">{chat.name}</h3>
-                                <span className="text-xs text-muted-foreground whitespace-nowrap">{chat.timestamp}</span>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">{chat.timestamp ? formatTimestamp(chat.timestamp) : ''}</span>
                               </div>
                               <p className="text-sm text-muted-foreground truncate">{chat.lastMessage}</p>
                             </div>
@@ -503,14 +460,14 @@ const Chat = () => {
                         </div>
                       )}
                       
-                      {activeChat.messages.map(message => (
+                      {(activeChat.messages as ChatMessage[]).map(message => (
                         <div key={message.id} className={`flex ${message.isMine ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[70%] rounded-lg p-3 ${message.isMine 
                             ? 'bg-neon-purple/20 text-white ml-auto' 
                             : 'bg-zinc-800/50 text-foreground'}`}
                           >
                             {!message.isMine && (
-                              <div className="font-medium text-sm mb-1">{message.sender}</div>
+                              <div className="font-medium text-sm mb-1">{message.senderName || message.sender}</div>
                             )}
                             <div>{message.content}</div>
                             <div className="flex items-center justify-end gap-1 text-xs opacity-70 mt-1">
@@ -584,7 +541,6 @@ const Chat = () => {
           </div>
         </div>
       </div>
-      
       <Footer />
     </div>
   );

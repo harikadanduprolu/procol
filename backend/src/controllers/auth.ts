@@ -192,4 +192,23 @@ export const updateProfile = async (req: Request, res: Response) => {
     console.error('Error updating profile:', error);
     res.status(500).json({ message: 'Error updating profile' });
   }
+};
+
+export const searchUsers = async (req: Request, res: Response) => {
+  try {
+    const query = req.query.query as string;
+    if (!query || query.length < 2) {
+      return res.status(400).json({ message: 'Query too short' });
+    }
+    const users = await User.find({
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } }
+      ]
+    })
+      .select('name email avatar');
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({ message: 'Error searching users' });
+  }
 }; 
