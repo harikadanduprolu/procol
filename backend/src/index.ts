@@ -53,19 +53,25 @@ app.use(express.json());
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+const PORT = Number(process.env.PORT) || 5000;
+
+// Function to start the server with a specific port
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
+
 // Database connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/projecthub', {
   serverSelectionTimeoutMS: 5000,
   socketTimeoutMS: 45000,
 })
   .then(() => {
-    console.log('Connected to MongoDB');
-    // Start the server only after successful database connection
-    startServer(PORT);
+    console.log('✅ Connected to MongoDB');
   })
   .catch((err) => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1); // Exit if cannot connect to database
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
   });
 
 // Socket.IO connection handling
@@ -107,18 +113,3 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-const PORT = Number(process.env.PORT) || 5000;
-
-// Function to start the server with a specific port
-const startServer = (port: number) => {
-  httpServer.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-  }).on('error', (err: any) => {
-    if (err.code === 'EADDRINUSE') {
-      console.log(`Port ${port} is busy, trying port ${port + 1}...`);
-      startServer(port + 1);
-    } else {
-      console.error('Server error:', err);
-    }
-  });
-};
