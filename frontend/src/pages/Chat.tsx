@@ -64,8 +64,12 @@ const Chat = () => {
   const [searchingUsers, setSearchingUsers] = useState(false);
 
   const formatTimestamp = (date: Date): string => {
-    if (isToday(date)) return format(date, 'h:mm a');
-    if (isYesterday(date)) return 'Yesterday, ' + format(date, 'h:mm a');
+    if (isToday(date)) {
+      return format(date, 'h:mm a');
+    }
+    if (isYesterday(date)) {
+      return 'Yesterday, ' + format(date, 'h:mm a');
+    }
     return format(date, 'MMM d, h:mm a');
   };
 
@@ -134,7 +138,9 @@ const Chat = () => {
   }, [activeChat?.messages]);
 
   const loadMessages = async (conversationId: string) => {
-    if (!conversationId) return;
+    if (!conversationId) {
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -149,7 +155,9 @@ const Chat = () => {
         read: msg.read,
         isMine: authUser && msg.sender._id === authUser._id
       }));
-      if (activeChat) setActiveChat(prev => prev ? { ...prev, messages, unread: 0 } : prev);
+      if (activeChat) {
+        setActiveChat(prev => prev ? { ...prev, messages, unread: 0 } : prev);
+      }
       markMessageAsRead(conversationId);
     } catch (err) {
       console.error('Error loading messages:', err);
@@ -175,14 +183,20 @@ const Chat = () => {
   };
 
   const handleTyping = () => {
-    if (!activeChat || !isConnected) return;
-    if (typingTimeout) clearTimeout(typingTimeout);
+    if (!activeChat || !isConnected) {
+      return;
+    }
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
     const timeout = setTimeout(() => {}, 2000);
     setTypingTimeout(timeout);
   };
 
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !activeChat || !isConnected || !authUser) return;
+    if (!messageText.trim() || !activeChat || !isConnected || !authUser) {
+      return;
+    }
     const newMessage: ChatMessage = {
       id: crypto.randomUUID(),
       sender: authUser._id,

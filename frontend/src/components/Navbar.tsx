@@ -42,7 +42,9 @@ const Navbar = () => {
 
   // Get user initials for avatar fallback
   const getUserInitials = () => {
-    if (!user?.name) return 'U';
+    if (!user?.name) {
+      return 'U';
+    }
     return user.name
       .split(' ')
       .map(part => part[0])

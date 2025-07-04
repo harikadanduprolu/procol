@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Users, Search, Lightbulb, MessageSquare, DollarSign, BookOpen, Rocket } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+
 const Index = () => {
   const projectsRef = useRef<HTMLDivElement>(null);
   
@@ -92,6 +93,8 @@ const Index = () => {
       university: "MIT"
     }
   ];
+  
+  const isLoggedIn = !!localStorage.getItem('token');
   
   return (
     <div className="min-h-screen">
@@ -270,58 +273,63 @@ const Index = () => {
       </section>
       
       {/* CTA Section */}
-      <section className="section-padding relative overflow-hidden">
-        <div className="absolute top-1/4 -right-20 w-72 h-72 bg-neon-purple/20 rounded-full blur-[100px] animate-pulse"></div>
-        <div className="absolute bottom-1/4 -left-20 w-72 h-72 bg-neon-blue/20 rounded-full blur-[100px] animate-pulse"></div>
-        
-        <div className="container mx-auto relative z-10">
-          <div className="max-w-4xl mx-auto glass-card neon-border rounded-2xl p-8 md:p-12 text-center animate-on-scroll">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6 gradient-text">
-              Ready to bring your ideas to life?
-            </h2>
-            <p className="text-content-secondary text-lg mb-8 max-w-2xl mx-auto">
-              Join ProCollab today and connect with students, mentors, and opportunities to turn your innovative ideas into reality.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                className="bg-gradient-to-r from-neon-purple to-neon-blue hover:opacity-90 text-white text-lg py-6 px-8"
-              >
-                Create Account
-              </Button>
-              <Button 
-                variant="outline" 
-                className="border-white/20 text-content-primary hover:bg-white/5 text-lg py-6 px-8"
-              >
-                Learn More
-              </Button>
+      {!isLoggedIn && (
+        <section className="section-padding relative overflow-hidden">
+          <div className="absolute top-1/4 -right-20 w-72 h-72 bg-neon-purple/20 rounded-full blur-[100px] animate-pulse"></div>
+          <div className="absolute bottom-1/4 -left-20 w-72 h-72 bg-neon-blue/20 rounded-full blur-[100px] animate-pulse"></div>
+          
+          <div className="container mx-auto relative z-10">
+            <div className="max-w-4xl mx-auto glass-card neon-border rounded-2xl p-8 md:p-12 text-center animate-on-scroll">
+              <h2 className="text-3xl md:text-4xl font-bold mb-6 gradient-text">
+                Ready to bring your ideas to life?
+              </h2>
+              <p className="text-content-secondary text-lg mb-8 max-w-2xl mx-auto">
+                Join ProCollab today and connect with students, mentors, and opportunities to turn your innovative ideas into reality.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button 
+                  className="bg-gradient-to-r from-neon-purple to-neon-blue hover:opacity-90 text-white text-lg py-6 px-8"
+                >
+                  Create Account
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="border-white/20 text-content-primary hover:bg-white/5 text-lg py-6 px-8"
+                >
+                  Learn More
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
       
       {/* Stats Section */}
-      <section className="section-padding">
-        <div className="container mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 animate-on-scroll">
-            <div className="glass-card rounded-xl p-6 text-center">
-              <span className="text-4xl font-bold gradient-text block mb-2">500+</span>
-              <p className="text-content-secondary">Active Projects</p>
-            </div>
-            <div className="glass-card rounded-xl p-6 text-center">
-              <span className="text-4xl font-bold gradient-text block mb-2">2,000+</span>
-              <p className="text-content-secondary">Students</p>
-            </div>
-            <div className="glass-card rounded-xl p-6 text-center">
-              <span className="text-4xl font-bold gradient-text block mb-2">150+</span>
-              <p className="text-content-secondary">Mentors</p>
-            </div>
-            <div className="glass-card rounded-xl p-6 text-center">
-              <span className="text-4xl font-bold gradient-text block mb-2">50+</span>
-              <p className="text-content-secondary">Universities</p>
-            </div>
-          </div>
-        </div>
-      </section>
+     {/*
+<section className="section-padding">
+  <div className="container mx-auto">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 animate-on-scroll">
+      <div className="glass-card rounded-xl p-6 text-center">
+        <span className="text-4xl font-bold gradient-text block mb-2">500+</span>
+        <p className="text-content-secondary">Active Projects</p>
+      </div>
+      <div className="glass-card rounded-xl p-6 text-center">
+        <span className="text-4xl font-bold gradient-text block mb-2">2,000+</span>
+        <p className="text-content-secondary">Students</p>
+      </div>
+      <div className="glass-card rounded-xl p-6 text-center">
+        <span className="text-4xl font-bold gradient-text block mb-2">150+</span>
+        <p className="text-content-secondary">Mentors</p>
+      </div>
+      <div className="glass-card rounded-xl p-6 text-center">
+        <span className="text-4xl font-bold gradient-text block mb-2">50+</span>
+        <p className="text-content-secondary">Universities</p>
+      </div>
+    </div>
+  </div>
+</section>
+*/}
+    
       
       <Footer />
     </div>

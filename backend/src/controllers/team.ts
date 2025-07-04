@@ -45,7 +45,9 @@ export const getTeams = async (req: Request, res: Response) => {
     const { search } = req.query;
     const query: any = {};
 
-    if (search) query.$text = { $search: search as string };
+    if (search) {
+      query.$text = { $search: search as string };
+    }
 
     const teams = await Team.find(query)
       .populate('leader', 'name email avatar')

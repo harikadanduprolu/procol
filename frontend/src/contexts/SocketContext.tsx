@@ -168,20 +168,25 @@ export const useSocket = () => {
 
 // Hook for accessing only messages
 export const useMessages = () => {
-  const { messages, sendMessage, clearMessages } = useSocket();
-  return { messages, sendMessage, clearMessages };
+  return useSocket();
 };
 
 // Hook for accessing only notifications
 export const useNotifications = () => {
-  const { notifications, sendNotification, clearNotifications } = useSocket();
-  return { notifications, sendNotification, clearNotifications };
+  return (({ notifications, sendNotification, clearNotifications }) => ({
+    notifications,
+    sendNotification,
+    clearNotifications,
+  }))(useSocket());
 };
 
 // Hook for checking connection status
 export const useSocketConnection = () => {
-  const { isConnected, connectSocket, disconnectSocket } = useSocket();
-  return { isConnected, connectSocket, disconnectSocket };
+  return (({ isConnected, connectSocket, disconnectSocket }) => ({
+    isConnected,
+    connectSocket,
+    disconnectSocket,
+  }))(useSocket());
 };
 
 export default SocketContext;

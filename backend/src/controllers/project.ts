@@ -81,8 +81,10 @@ export const getProjects = async (req: Request, res: Response) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Build query
-    if (category) query.category = category;
-    if (status) query.status = status;
+    if (category) { query.category = category; }
+    if (status) {
+      query.status = status;
+    }
     
     // Handle text search
     if (search) {

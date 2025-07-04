@@ -37,11 +37,15 @@ const checkMembership = async (userId: string, entityId: string, type: 'team' | 
   const objectId = new Types.ObjectId(userId);
   if (type === 'team') {
     const team = await Team.findById(new Types.ObjectId(entityId));
-    if (!team) throw new Error('Team not found');
+    if (!team) {
+      throw new Error('Team not found');
+    }
     return team.members.some(member => member.equals(objectId));
   } else {
     const project = await Project.findById(new Types.ObjectId(entityId));
-    if (!project) throw new Error('Project not found');
+    if (!project) {
+      throw new Error('Project not found');
+    }
     return project.team.some(member => member.equals(objectId));
   }
 };
@@ -49,13 +53,17 @@ const checkMembership = async (userId: string, entityId: string, type: 'team' | 
 // Helper functions
 const isTeamMember = async (teamId: string, userId: string): Promise<boolean> => {
   const team = await Team.findById(new Types.ObjectId(teamId));
-  if (!team) return false;
+  if (!team) {
+    return false;
+  }
   return team.members.some(member => member.equals(new Types.ObjectId(userId)));
 };
 
 const isProjectMember = async (projectId: string, userId: string): Promise<boolean> => {
   const project = await Project.findById(new Types.ObjectId(projectId));
-  if (!project) return false;
+  if (!project) {
+    return false;
+  }
   return project.team.some(member => member.equals(new Types.ObjectId(userId)));
 };
 
@@ -713,7 +721,9 @@ export const createConversation = async (req: Request, res: Response) => {
     }).sort({ createdAt: 1 });
     // Get the other user's info
     const otherUser = await User.findById(otherUserId).select('name avatar email');
-    if (!otherUser) return res.status(404).json({ message: 'User not found' });
+    if (!otherUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
     // Compose conversation object
     const conversation = {
       _id: [userId, otherUserId].sort().join('-'),
