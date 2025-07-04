@@ -48,7 +48,7 @@ class SocketService {
   // Initialize the socket connection
   initialize() {
     // Get the base URL from environment variables, or use default
-    const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://procol-backend.onrender.com';
 
     // Get the auth token from localStorage
     const token = localStorage.getItem('token');
