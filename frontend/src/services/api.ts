@@ -140,8 +140,8 @@ export const messageApi = {
   getMessages: (userId: string) => 
     api.get(`/messages/${userId}`),
   
-  sendMessage: (data: { recipientId: string; content: string }) => 
-    api.post('/messages', data),
+  sendMessage: (data: { senderId: string; recipientId: string; content: string }) =>
+  api.post('/messages', data),
 
   sendTeamMessage: (teamId: string, content: string) =>
     api.post(`/messages/team/${teamId}`, { content }),

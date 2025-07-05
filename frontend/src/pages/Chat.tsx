@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Users, Folder, CheckCheck, Check, Clock, AlertCircle } from 'lucide-react';
+import { Send, Users, Folder, CheckCheck, Check, Clock, AlertCircle, User } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Spinner } from "@/components/ui/spinner";
 import { useSocket } from '@/contexts/SocketContext';
@@ -217,7 +217,11 @@ const Chat = () => {
         } else if (activeChat.type === 'project') {
           await messageApi.sendProjectMessage(activeChat.id, messageText);
         } else {
-          await messageApi.sendMessage({ recipientId: activeChat.id, content: messageText });
+          await messageApi.sendMessage({
+    senderId: authUser._id,
+    recipientId: activeChat.id,
+    content: messageText
+  });
         }
       } catch (err) {
         console.error('Error saving message:', err);
@@ -286,6 +290,7 @@ const Chat = () => {
       toast({ title: 'Error', description: 'Could not start chat', variant: 'destructive' });
     }
   };
+  
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -293,31 +298,7 @@ const Chat = () => {
       <div className="flex-1 flex flex-col container mx-auto px-4 pt-24 pb-16">
         <h1 className="text-3xl font-bold gradient-text mb-6">Messages</h1>
 
-        <Input
-          type="text"
-          placeholder="Search users or chats..."
-          value={searchText}
-          onChange={handleUserSearch}
-          className="mb-4 w-full"
-        />
-
-        {searchingUsers && <div className="mb-2 text-content-secondary">Searching users...</div>}
-        {userResults.length > 0 && (
-          <ul className="mb-4 bg-zinc-900 rounded shadow p-2 max-h-60 overflow-y-auto">
-            {userResults.map(user => (
-              <li
-                key={user._id}
-                className="p-2 hover:bg-zinc-800 cursor-pointer rounded flex items-center gap-2"
-                onClick={() => startDirectChat(user._id)}
-              >
-                <Avatar className="h-6 w-6">
-                  {user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : <AvatarFallback>{user.name.slice(0,2).toUpperCase()}</AvatarFallback>}
-                </Avatar>
-                <span>{user.name}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        
 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-16rem)] relative">
           {/* Loading State */}
           {isLoading && !activeChat && (
@@ -350,6 +331,7 @@ const Chat = () => {
               <span>You are offline. Messages won't be sent in real-time.</span>
             </div>
           )}
+
           
           {/* Chat List */}
           <div className={`lg:col-span-1 overflow-hidden relative z-10 ${(isLoading && !activeChat) || (error && !activeChat) ? 'hidden' : ''}`}>
@@ -357,8 +339,33 @@ const Chat = () => {
               <TabsList className="w-full mb-4">
                 <TabsTrigger value="teams" className="flex-1"><Users className="mr-2 h-4 w-4" /> Teams</TabsTrigger>
                 <TabsTrigger value="projects" className="flex-1"><Folder className="mr-2 h-4 w-4" /> Projects</TabsTrigger>
+                <TabsTrigger value="users" className="flex-1"><User className="mr-2 h-4 w-4"/>User</TabsTrigger>
               </TabsList>
-              
+              <Input
+          type="text"
+          placeholder="Search users or chats..."
+          value={searchText}
+          onChange={handleUserSearch}
+          className="mb-4 w-full"
+        />
+
+        {searchingUsers && <div className="mb-2 text-content-secondary">Searching users...</div>}
+        {userResults.length > 0 && (
+          <ul className="mb-4 bg-zinc-900 rounded shadow p-2 max-h-60 overflow-y-auto">
+            {userResults.map(user => (
+              <li
+                key={user._id}
+                className="p-2 hover:bg-zinc-800 cursor-pointer rounded flex items-center gap-2"
+                onClick={() => startDirectChat(user._id)}
+              >
+                <Avatar className="h-6 w-6">
+                  {user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : <AvatarFallback>{user.name.slice(0,2).toUpperCase()}</AvatarFallback>}
+                </Avatar>
+                <span>{user.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
               <TabsContent value="teams" className="mt-0 flex-1 overflow-hidden">
                 <Card className="h-full bg-zinc-900/50 border-zinc-800">
                   <CardContent className="p-0 h-full overflow-y-auto">

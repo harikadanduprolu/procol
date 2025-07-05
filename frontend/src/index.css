@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -38,7 +37,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
 
   body {
@@ -85,5 +84,11 @@
 
   .hover-scale {
     @apply transition-transform duration-300 hover:scale-105;
+  }
+}
+
+@layer utilities {
+  .text-foreground {
+    color: hsl(var(--foreground));
   }
 }
