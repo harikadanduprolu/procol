@@ -1,11 +1,11 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { mentorApi } from '@/services/api';
 
 interface MentorProps {
   name: string;
@@ -16,63 +16,6 @@ interface MentorProps {
   rating: number;
   description: string;
 }
-
-const mentors: MentorProps[] = [
-  {
-    name: 'Dr. Sarah Chen',
-    title: 'AI Research Scientist',
-    company: 'DeepMind',
-    expertise: ['Machine Learning', 'Neural Networks', 'Computer Vision'],
-    image: 'https://i.pravatar.cc/300?img=1',
-    rating: 4.9,
-    description: 'Specializing in deep learning architectures with over 10 years of industry experience. Available to mentor students working on AI/ML projects.',
-  },
-  {
-    name: 'James Rodriguez',
-    title: 'Senior Software Engineer',
-    company: 'Google',
-    expertise: ['Full-Stack Development', 'Cloud Architecture', 'Mobile Apps'],
-    image: 'https://i.pravatar.cc/300?img=3',
-    rating: 4.7,
-    description: 'Passionate about helping students develop scalable applications with modern tech stacks. Experienced in mentoring junior developers.',
-  },
-  {
-    name: 'Dr. Michelle Wong',
-    title: 'Biotech Researcher',
-    company: 'Genentech',
-    expertise: ['Biomedical Engineering', 'Genomics', 'Medical Devices'],
-    image: 'https://i.pravatar.cc/300?img=5',
-    rating: 4.8,
-    description: 'Helping students bridge the gap between biology and technology. Can guide projects related to healthcare innovations and biotech.',
-  },
-  {
-    name: 'Alex Johnson',
-    title: 'Product Design Lead',
-    company: 'Airbnb',
-    expertise: ['UX/UI Design', 'Design Systems', 'User Research'],
-    image: 'https://i.pravatar.cc/300?img=7',
-    rating: 4.6,
-    description: 'Design mentor with a focus on user-centered design processes. Can help with everything from wireframing to usability testing.',
-  },
-  {
-    name: 'Priya Patel',
-    title: 'Startup Founder',
-    company: 'TechFoundry',
-    expertise: ['Entrepreneurship', 'Business Strategy', 'Fundraising'],
-    image: 'https://i.pravatar.cc/300?img=9',
-    rating: 4.9,
-    description: 'Serial entrepreneur who has raised over $10M in funding. Mentors students interested in launching their own startups.',
-  },
-  {
-    name: 'David Kim',
-    title: 'Blockchain Developer',
-    company: 'Ethereum Foundation',
-    expertise: ['Blockchain', 'Smart Contracts', 'Cryptocurrency'],
-    image: 'https://i.pravatar.cc/300?img=11',
-    rating: 4.7,
-    description: 'Specialized in blockchain technologies and Web3 development. Can guide students on implementing decentralized applications.',
-  },
-];
 
 const MentorCard = ({ mentor }: { mentor: MentorProps }) => {
   return (
@@ -131,6 +74,30 @@ const MentorCard = ({ mentor }: { mentor: MentorProps }) => {
 };
 
 const Mentors = () => {
+  const [mentors, setMentors] = useState<MentorProps[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMentors = async () => {
+      try {
+        const res = await mentorApi.getAll();
+        setMentors(res.data.map((m: any) => ({
+          name: m.user?.name || 'Unknown',
+          title: m.user?.title || '',
+          company: m.user?.company || '',
+          expertise: m.expertise,
+          image: m.user?.avatar || 'https://i.pravatar.cc/300',
+          rating: m.rating,
+          description: m.user?.bio || '',
+        })));
+      } catch {
+        setMentors([]);
+      }
+      setLoading(false);
+    };
+    fetchMentors();
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -144,11 +111,23 @@ const Mentors = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mentors.map((mentor, index) => (
-              <MentorCard key={index} mentor={mentor} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-content-secondary">Loading mentors...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {mentors.length > 0 ? (
+                mentors.map((mentor, index) => (
+                  <MentorCard key={index} mentor={mentor} />
+                ))
+              ) : (
+                <div className="text-center col-span-1 md:col-span-2 lg:col-span-3 py-12">
+                  <p className="text-content-secondary">No mentors found. Please check back later.</p>
+                </div>
+              )}
+            </div>
+          )}
           
           <div className="mt-16 text-center">
             <h2 className="text-2xl font-bold mb-4">Become a Mentor</h2>

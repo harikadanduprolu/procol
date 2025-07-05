@@ -8,10 +8,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
+import { notificationApi, messageApi } from '@/services/api'; // <-- Add this import
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [messageCount, setMessageCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
@@ -24,6 +27,47 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [location]); // Re-check when location changes
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotificationCount(0);
+      return;
+    }
+    // Fetch notification count (unread or all, as your API supports)
+    const fetchCount = async () => {
+      try {
+        const res = await notificationApi.getAll();
+        // Count unread or pending notifications
+        const count = Array.isArray(res.data)
+          ? res.data.filter((n: any) => !n.read || n.status === 'pending').length
+          : 0;
+        setNotificationCount(count);
+      } catch {
+        setNotificationCount(0);
+      }
+    };
+    fetchCount();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setMessageCount(0);
+      return;
+    }
+    const fetchMessageCount = async () => {
+      try {
+        const res = await messageApi.getConversations();
+        // Count unread messages (adjust the filter as per your backend)
+        const count = Array.isArray(res.data)
+          ? res.data.reduce((acc: number, convo: any) => acc + (convo.unreadCount || 0), 0)
+          : 0;
+        setMessageCount(count);
+      } catch {
+        setMessageCount(0);
+      }
+    };
+    fetchMessageCount();
+  }, [isAuthenticated]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -118,13 +162,21 @@ const Navbar = () => {
                 <Link to="/chat" className="relative">
                   <Button variant="ghost" size="icon" className="rounded-full text-content-primary hover:text-neon-blue">
                     <MessageCircle size={20} />
-                    <span className="absolute -top-1 -right-1 bg-neon-purple text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                    {messageCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-neon-purple text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {messageCount}
+                      </span>
+                    )}
                   </Button>
                 </Link>
                 <Link to="/notifications" className="relative">
                   <Button variant="ghost" size="icon" className="rounded-full text-content-primary hover:text-neon-blue">
                     <Bell size={20} />
-                    <span className="absolute -top-1 -right-1 bg-neon-blue text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">5</span>
+                    {notificationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-neon-blue text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {notificationCount}
+                      </span>
+                    )}
                   </Button>
                 </Link>
                 <Link to="/profile">
@@ -228,7 +280,11 @@ const Navbar = () => {
                 >
                   <MessageCircle size={18} />
                   <span>Messages</span>
-                  <span className="ml-auto bg-neon-purple text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                  {messageCount > 0 && (
+                    <span className="ml-auto bg-neon-purple text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {messageCount}
+                    </span>
+                  )}
                 </Link>
                 <Link 
                   to="/notifications" 
@@ -237,7 +293,11 @@ const Navbar = () => {
                 >
                   <Bell size={18} />
                   <span>Notifications</span>
-                  <span className="ml-auto bg-neon-blue text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">5</span>
+                  {notificationCount > 0 && (
+                    <span className="ml-auto bg-neon-blue text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {notificationCount}
+                    </span>
+                  )}
                 </Link>
                 <Link 
                   to="/profile" 
