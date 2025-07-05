@@ -94,6 +94,11 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     const { recipientId, content } = req.body;
 
+    // Validate recipientId
+    if (!recipientId || !mongoose.Types.ObjectId.isValid(recipientId)) {
+      return res.status(400).json({ message: 'Invalid recipientId' });
+    }
+
     const message = new Message({
       sender: new Types.ObjectId(sender),
       recipientId: new Types.ObjectId(recipientId),

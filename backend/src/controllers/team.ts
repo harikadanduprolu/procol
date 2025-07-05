@@ -205,8 +205,15 @@ export const getUserTeams = async (req: Request, res: Response) => {
       .populate('leader', 'name email avatar')
       .populate('members', 'name email avatar')
       .populate('projects', 'title');
+    const teamsWithCounts = teams.map((team) => ({
+  _id: team._id,
+  name: team.name,
+  role: req.user && (team.leader as Types.ObjectId).equals(req.user._id as Types.ObjectId) ? 'Leader' : 'Member',
+  members: team.members.length,
+  projects: team.projects.length,
+}));
 
-    res.json({ teams });
+    res.json({ teams: teamsWithCounts });
   } catch (error) {
     console.error('Error fetching user teams:', error);
     res.status(500).json({ message: 'Error fetching user teams' });

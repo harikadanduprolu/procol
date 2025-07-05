@@ -15,6 +15,9 @@ const router = express.Router();
 
 // Public routes
 router.get('/', getTeams);
+
+router.get('/my', auth, getUserTeams);
+
 router.get('/:id', getTeam);
 
 // Protected routes
@@ -23,6 +26,7 @@ router.put('/:id', auth, updateTeam);
 router.delete('/:id', auth, deleteTeam);
 router.post('/:id/members', auth, addTeamMember);
 router.delete('/:id/members', auth, removeTeamMember);
-router.get('/my', auth, getUserTeams);
+
+// Public routes
 
 export default router; 
