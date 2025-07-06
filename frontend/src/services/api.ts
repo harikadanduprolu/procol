@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://procol-backend.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -140,8 +140,8 @@ export const messageApi = {
   getMessages: (userId: string) => 
     api.get(`/messages/${userId}`),
   
-  sendMessage: (data: { recipientId: string; content: string }) => 
-    api.post('/messages', data),
+  sendMessage: (data: { senderId: string; recipientId: string; content: string }) =>
+  api.post('/messages', data),
 
   sendTeamMessage: (teamId: string, content: string) =>
     api.post(`/messages/team/${teamId}`, { content }),

@@ -24,17 +24,22 @@ import BecomeMentor from "./pages/BecomeMentor";
 import Chat from "./pages/Chat";
 import Notifications from "./pages/Notifications";
 import CreateTeam from './pages/CreateTeams';
+import ScrollToTop from "@/components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
 const App = () => (
+  <>
+    
   <QueryClientProvider client={queryClient}>
+    
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
           <SocketProvider>
+          <ScrollToTop />
             <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
@@ -89,6 +94,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </>
 );
 
 export default App;

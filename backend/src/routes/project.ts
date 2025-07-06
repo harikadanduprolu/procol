@@ -19,6 +19,7 @@ const upload = multer({ dest: 'uploads/' });
 router.get('/', getProjects);
 router.get('/:id', getProject);
 
+
 // Protected routes
 router.post('/', auth, upload.single('image'), createProject);
 router.put('/:id', auth, upload.single('image'), updateProject);

@@ -13,6 +13,7 @@ import teamRoutes from './routes/team';
 import fundingRoutes from './routes/funding';
 import messageRoutes from './routes/message';
 import notificationRoutes from './routes/notification';
+import mentorRoutes from './routes/mentor'; // <-- Add this import
 
 // Load environment variables
 dotenv.config();
@@ -106,6 +107,7 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/funding', fundingRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/mentors', mentorRoutes); // <-- Add this line
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
