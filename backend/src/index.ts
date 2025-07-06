@@ -21,14 +21,18 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
+
 // Define allowed origins
 const allowedOrigins = ([
   process.env.FRONTEND_URL,
   process.env.SOCKET_CORS_ORIGIN,
   'http://localhost:5173',
   'http://localhost:3000',
-  'http://localhost:8080'
+  'http://localhost:8080',
+  'https://procol.onrender.com'
 ].filter(Boolean) as string[]);
+
+console.log('Allowed origins:', allowedOrigins);
 
 
 const io = new Server(httpServer, {
@@ -44,7 +48,16 @@ export { io };
 
 // Middleware
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
