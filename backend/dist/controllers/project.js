@@ -65,10 +65,12 @@ const getProjects = async (req, res) => {
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
         // Build query
-        if (category)
+        if (category) {
             query.category = category;
-        if (status)
+        }
+        if (status) {
             query.status = status;
+        }
         // Handle text search
         if (search) {
             try {

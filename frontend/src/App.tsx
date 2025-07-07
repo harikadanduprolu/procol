@@ -25,6 +25,7 @@ import Chat from "./pages/Chat";
 import Notifications from "./pages/Notifications";
 import CreateTeam from './pages/CreateTeams';
 import ScrollToTop from "@/components/ScrollToTop";
+import OtpVerification from "./pages/OtpVerification";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/funding/:id" element={<FundingDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/otpverification" element={<OtpVerification/>}/>
             
             {/* Protected Routes */}
             <Route path="/profile" element={

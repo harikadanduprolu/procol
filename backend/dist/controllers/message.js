@@ -1,11 +1,41 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUnreadCount = exports.markAsRead = exports.markAllAsRead = exports.updateMessage = exports.deleteMessage = exports.removeReaction = exports.addReaction = exports.getProjectMessages = exports.getTeamMessages = exports.getMessages = exports.getConversations = exports.sendProjectMessage = exports.sendTeamMessage = exports.sendMessage = void 0;
-const mongoose_1 = __importDefault(require("mongoose"));
-const message_1 = require("../models/message");
+exports.createConversation = exports.getUnreadCount = exports.markAsRead = exports.markAllAsRead = exports.updateMessage = exports.deleteMessage = exports.removeReaction = exports.addReaction = exports.getProjectMessages = exports.getTeamMessages = exports.getMessages = exports.getConversations = exports.sendProjectMessage = exports.sendTeamMessage = exports.sendMessage = void 0;
+const mongoose_1 = __importStar(require("mongoose"));
+const Message_1 = require("../models/Message");
 const User_1 = require("../models/User");
 const Team_1 = require("../models/Team");
 const Project_1 = require("../models/Project");
@@ -18,13 +48,13 @@ const getRecipient = async (id, type) => {
     let recipient;
     switch (type) {
         case 'user':
-            recipient = await User_1.User.findById(id);
+            recipient = await User_1.User.findById(new mongoose_1.Types.ObjectId(id));
             break;
         case 'team':
-            recipient = await Team_1.Team.findById(id);
+            recipient = await Team_1.Team.findById(new mongoose_1.Types.ObjectId(id));
             break;
         case 'project':
-            recipient = await Project_1.Project.findById(id);
+            recipient = await Project_1.Project.findById(new mongoose_1.Types.ObjectId(id));
             break;
     }
     if (!recipient) {
@@ -34,17 +64,48 @@ const getRecipient = async (id, type) => {
 };
 // Helper function to check membership in team or project
 const checkMembership = async (userId, entityId, type) => {
+    const objectId = new mongoose_1.Types.ObjectId(userId);
     if (type === 'team') {
-        const team = await Team_1.Team.findById(entityId);
-        if (!team)
+        const team = await Team_1.Team.findById(new mongoose_1.Types.ObjectId(entityId));
+        if (!team) {
             throw new Error('Team not found');
-        return team.members.includes(userId);
+        }
+        return team.members.some(member => member.equals(objectId));
     }
     else {
-        const project = await Project_1.Project.findById(entityId);
-        if (!project)
+        const project = await Project_1.Project.findById(new mongoose_1.Types.ObjectId(entityId));
+        if (!project) {
             throw new Error('Project not found');
-        return project.team.includes(userId);
+        }
+        return project.team.some(member => member.equals(objectId));
+    }
+};
+// Helper functions
+const isTeamMember = async (teamId, userId) => {
+    const team = await Team_1.Team.findById(new mongoose_1.Types.ObjectId(teamId));
+    if (!team) {
+        return false;
+    }
+    return team.members.some(member => member.equals(new mongoose_1.Types.ObjectId(userId)));
+};
+const isProjectMember = async (projectId, userId) => {
+    const project = await Project_1.Project.findById(new mongoose_1.Types.ObjectId(projectId));
+    if (!project) {
+        return false;
+    }
+    return project.team.some(member => member.equals(new mongoose_1.Types.ObjectId(userId)));
+};
+// Fix the entity model findById calls
+const getEntityModel = (type) => {
+    switch (type) {
+        case 'user':
+            return User_1.User;
+        case 'team':
+            return Team_1.Team;
+        case 'project':
+            return Project_1.Project;
+        default:
+            throw new Error('Invalid recipient type');
     }
 };
 /**
@@ -53,31 +114,32 @@ const checkMembership = async (userId, entityId, type) => {
  */
 const sendMessage = async (req, res) => {
     try {
-        const { recipient, content } = req.body;
-        const sender = req.userId;
-        // Validate recipient exists
-        await getRecipient(recipient, 'user');
-        // Create new message
-        const message = new message_1.Message({
-            sender,
-            recipientId: recipient,
+        const sender = req.user && req.user._id;
+        if (!sender) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+        const { recipientId, content } = req.body;
+        // Validate recipientId
+        if (!recipientId || !mongoose_1.default.Types.ObjectId.isValid(recipientId)) {
+            return res.status(400).json({ message: 'Invalid recipientId' });
+        }
+        const message = new Message_1.Message({
+            sender: new mongoose_1.Types.ObjectId(sender),
+            recipientId: new mongoose_1.Types.ObjectId(recipientId),
             recipientType: 'user',
             content,
+            metadata: {
+                readBy: [new mongoose_1.Types.ObjectId(sender)]
+            }
         });
         await message.save();
-        // Populate sender details for the response
-        const populatedMessage = await message_1.Message.findById(message._id)
-            .populate('sender', 'name avatar')
-            .populate('readBy', 'name');
-        // Emit socket event for real-time updates
-        if (index_1.io) {
-            index_1.io.to(recipient).emit('newMessage', populatedMessage);
-        }
-        res.status(201).json(populatedMessage);
+        // Emit socket event
+        index_1.io.to(recipientId).emit('newMessage', message);
+        res.status(201).json(message);
     }
     catch (error) {
-        console.error('Send message error:', error);
-        res.status(500).json({ message: error.message || 'Error sending message' });
+        console.error('Error sending message:', error);
+        res.status(500).json({ message: 'Error sending message' });
     }
 };
 exports.sendMessage = sendMessage;
@@ -87,42 +149,40 @@ exports.sendMessage = sendMessage;
  */
 const sendTeamMessage = async (req, res) => {
     try {
-        const teamId = req.params.teamId;
-        const { content } = req.body;
-        const sender = req.userId;
-        // Check if team exists and user is a member
-        const isMember = await checkMembership(sender, teamId, 'team');
-        if (!isMember) {
-            return res.status(403).json({ message: 'You must be a team member to send messages' });
+        const sender = req.user && req.user._id;
+        if (!sender) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        // Create new message
-        const message = new message_1.Message({
-            sender,
-            recipientId: teamId,
+        const { teamId, content } = req.body;
+        // Check if user is team member
+        const isMember = await isTeamMember(teamId, sender?.toString());
+        if (!isMember) {
+            return res.status(403).json({ message: 'Not a team member' });
+        }
+        const team = await Team_1.Team.findById(new mongoose_1.Types.ObjectId(teamId));
+        if (!team) {
+            return res.status(404).json({ message: 'Team not found' });
+        }
+        const teamMemberIds = team.members ? team.members.map(member => member.toString()) : [];
+        const message = new Message_1.Message({
+            sender: new mongoose_1.Types.ObjectId(sender),
+            recipientId: new mongoose_1.Types.ObjectId(teamId),
             recipientType: 'team',
             content,
+            metadata: {
+                readBy: [new mongoose_1.Types.ObjectId(sender)]
+            }
         });
         await message.save();
-        // Populate sender details for the response
-        const populatedMessage = await message_1.Message.findById(message._id)
-            .populate('sender', 'name avatar')
-            .populate('readBy', 'name');
-        // Get all team members to notify
-        const team = await Team_1.Team.findById(teamId).populate('members');
-        const teamMemberIds = team.members.map(member => member._id.toString());
         // Emit socket event to all team members
-        if (index_1.io) {
-            teamMemberIds.forEach(memberId => {
-                if (memberId !== sender) {
-                    index_1.io.to(memberId).emit('newMessage', populatedMessage);
-                }
-            });
-        }
-        res.status(201).json(populatedMessage);
+        teamMemberIds.forEach(memberId => {
+            index_1.io.to(memberId).emit('newTeamMessage', message);
+        });
+        res.status(201).json(message);
     }
     catch (error) {
-        console.error('Send team message error:', error);
-        res.status(500).json({ message: error.message || 'Error sending team message' });
+        console.error('Error sending team message:', error);
+        res.status(500).json({ message: 'Error sending team message' });
     }
 };
 exports.sendTeamMessage = sendTeamMessage;
@@ -132,42 +192,40 @@ exports.sendTeamMessage = sendTeamMessage;
  */
 const sendProjectMessage = async (req, res) => {
     try {
-        const projectId = req.params.projectId;
-        const { content } = req.body;
-        const sender = req.userId;
-        // Check if project exists and user is a member
-        const isMember = await checkMembership(sender, projectId, 'project');
-        if (!isMember) {
-            return res.status(403).json({ message: 'You must be a project member to send messages' });
+        const sender = req.user && req.user._id;
+        if (!sender) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        // Create new message
-        const message = new message_1.Message({
-            sender,
-            recipientId: projectId,
+        const { projectId, content } = req.body;
+        // Check if user is project member
+        const isMember = await isProjectMember(projectId, sender?.toString());
+        if (!isMember) {
+            return res.status(403).json({ message: 'Not a project member' });
+        }
+        const project = await Project_1.Project.findById(new mongoose_1.Types.ObjectId(projectId));
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+        const projectMemberIds = project.team ? project.team.map(member => member.toString()) : [];
+        const message = new Message_1.Message({
+            sender: new mongoose_1.Types.ObjectId(sender),
+            recipientId: new mongoose_1.Types.ObjectId(projectId),
             recipientType: 'project',
             content,
+            metadata: {
+                readBy: [new mongoose_1.Types.ObjectId(sender)]
+            }
         });
         await message.save();
-        // Populate sender details for the response
-        const populatedMessage = await message_1.Message.findById(message._id)
-            .populate('sender', 'name avatar')
-            .populate('readBy', 'name');
-        // Get all project members to notify
-        const project = await Project_1.Project.findById(projectId).populate('team');
-        const projectMemberIds = project.team.map(member => member._id.toString());
         // Emit socket event to all project members
-        if (index_1.io) {
-            projectMemberIds.forEach(memberId => {
-                if (memberId !== sender) {
-                    index_1.io.to(memberId).emit('newMessage', populatedMessage);
-                }
-            });
-        }
-        res.status(201).json(populatedMessage);
+        projectMemberIds.forEach(memberId => {
+            index_1.io.to(memberId).emit('newProjectMessage', message);
+        });
+        res.status(201).json(message);
     }
     catch (error) {
-        console.error('Send project message error:', error);
-        res.status(500).json({ message: error.message || 'Error sending project message' });
+        console.error('Error sending project message:', error);
+        res.status(500).json({ message: 'Error sending project message' });
     }
 };
 exports.sendProjectMessage = sendProjectMessage;
@@ -177,14 +235,16 @@ exports.sendProjectMessage = sendProjectMessage;
  */
 const getConversations = async (req, res) => {
     try {
-        const userId = req.userId;
-        // Find direct message conversations (user-to-user)
-        const userConversations = await message_1.Message.aggregate([
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+        const conversations = await Message_1.Message.aggregate([
             {
                 $match: {
                     $or: [
-                        { sender: mongoose_1.default.Types.ObjectId(userId), recipientType: 'user' },
-                        { recipientId: mongoose_1.default.Types.ObjectId(userId), recipientType: 'user' }
+                        { sender: new mongoose_1.Types.ObjectId(userId.toString()), recipientType: 'user' },
+                        { recipientId: new mongoose_1.Types.ObjectId(userId.toString()), recipientType: 'user' }
                     ]
                 }
             },
@@ -195,7 +255,7 @@ const getConversations = async (req, res) => {
                 $group: {
                     _id: {
                         $cond: [
-                            { $eq: ['$sender', mongoose_1.default.Types.ObjectId(userId)] },
+                            { $eq: ['$sender', new mongoose_1.Types.ObjectId(userId.toString())] },
                             '$recipientId',
                             '$sender'
                         ]
@@ -206,8 +266,8 @@ const getConversations = async (req, res) => {
                             $cond: [
                                 {
                                     $and: [
-                                        { $eq: ['$recipientId', mongoose_1.default.Types.ObjectId(userId)] },
-                                        { $not: [{ $in: [mongoose_1.default.Types.ObjectId(userId), '$readBy'] }] }
+                                        { $eq: ['$recipientId', new mongoose_1.Types.ObjectId(userId.toString())] },
+                                        { $not: [{ $in: [new mongoose_1.Types.ObjectId(userId.toString()), '$metadata.readBy'] }] }
                                     ]
                                 },
                                 1,
@@ -216,131 +276,13 @@ const getConversations = async (req, res) => {
                         }
                     }
                 }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: '_id',
-                    foreignField: '_id',
-                    as: 'userDetails'
-                }
-            },
-            {
-                $project: {
-                    _id: 1,
-                    type: { $literal: 'user' },
-                    name: { $arrayElemAt: ['$userDetails.name', 0] },
-                    avatar: { $arrayElemAt: ['$userDetails.avatar', 0] },
-                    lastMessage: 1,
-                    unreadCount: 1
-                }
             }
         ]);
-        // Find team conversations
-        const teams = await Team_1.Team.find({ members: userId });
-        const teamIds = teams.map(team => team._id);
-        const teamConversations = await message_1.Message.aggregate([
-            {
-                $match: {
-                    recipientType: 'team',
-                    recipientId: { $in: teamIds }
-                }
-            },
-            {
-                $sort: { createdAt: -1 }
-            },
-            {
-                $group: {
-                    _id: '$recipientId',
-                    lastMessage: { $first: '$$ROOT' },
-                    unreadCount: {
-                        $sum: {
-                            $cond: [
-                                { $not: [{ $in: [mongoose_1.default.Types.ObjectId(userId), '$readBy'] }] },
-                                1,
-                                0
-                            ]
-                        }
-                    }
-                }
-            },
-            {
-                $lookup: {
-                    from: 'teams',
-                    localField: '_id',
-                    foreignField: '_id',
-                    as: 'teamDetails'
-                }
-            },
-            {
-                $project: {
-                    _id: 1,
-                    type: { $literal: 'team' },
-                    name: { $arrayElemAt: ['$teamDetails.name', 0] },
-                    avatar: { $arrayElemAt: ['$teamDetails.avatar', 0] },
-                    lastMessage: 1,
-                    unreadCount: 1
-                }
-            }
-        ]);
-        // Find project conversations
-        const projects = await Project_1.Project.find({ team: userId });
-        const projectIds = projects.map(project => project._id);
-        const projectConversations = await message_1.Message.aggregate([
-            {
-                $match: {
-                    recipientType: 'project',
-                    recipientId: { $in: projectIds }
-                }
-            },
-            {
-                $sort: { createdAt: -1 }
-            },
-            {
-                $group: {
-                    _id: '$recipientId',
-                    lastMessage: { $first: '$$ROOT' },
-                    unreadCount: {
-                        $sum: {
-                            $cond: [
-                                { $not: [{ $in: [mongoose_1.default.Types.ObjectId(userId), '$readBy'] }] },
-                                1,
-                                0
-                            ]
-                        }
-                    }
-                }
-            },
-            {
-                $lookup: {
-                    from: 'projects',
-                    localField: '_id',
-                    foreignField: '_id',
-                    as: 'projectDetails'
-                }
-            },
-            {
-                $project: {
-                    _id: 1,
-                    type: { $literal: 'project' },
-                    name: { $arrayElemAt: ['$projectDetails.name', 0] },
-                    avatar: { $arrayElemAt: ['$projectDetails.avatar', 0] },
-                    lastMessage: 1,
-                    unreadCount: 1
-                }
-            }
-        ]);
-        // Combine all conversations
-        const allConversations = [
-            ...userConversations,
-            ...teamConversations,
-            ...projectConversations
-        ].sort((a, b) => new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime());
-        res.json(allConversations);
+        res.json(conversations);
     }
     catch (error) {
-        console.error('Get conversations error:', error);
-        res.status(500).json({ message: error.message || 'Error fetching conversations' });
+        console.error('Error fetching conversations:', error);
+        res.status(500).json({ message: 'Error fetching conversations' });
     }
 };
 exports.getConversations = getConversations;
@@ -350,109 +292,22 @@ exports.getConversations = getConversations;
  */
 const getMessages = async (req, res) => {
     try {
-        const recipientId = req.params.recipientId;
-        const userId = req.userId;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
-        const skip = (page - 1) * limit;
-        // Check if recipient exists and determine type
-        let recipientType = 'user';
-        // Try to find recipient and determine its type
-        let recipient = await User_1.User.findById(recipientId);
-        if (recipient) {
-            recipientType = 'user';
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        else {
-            recipient = await Team_1.Team.findById(recipientId);
-            if (recipient) {
-                recipientType = 'team';
-                // Check if user is a member of the team
-                const isMember = await checkMembership(userId, recipientId, 'team');
-                if (!isMember) {
-                    return res.status(403).json({ message: 'You must be a team member to view these messages' });
-                }
-            }
-            else {
-                recipient = await Project_1.Project.findById(recipientId);
-                if (recipient) {
-                    recipientType = 'project';
-                    // Check if user is a member of the project
-                    const isMember = await checkMembership(userId, recipientId, 'project');
-                    if (!isMember) {
-                        return res.status(403).json({ message: 'You must be a project member to view these messages' });
-                    }
-                }
-                else {
-                    return res.status(404).json({ message: 'Recipient not found' });
-                }
-            }
-        }
-        // Fetch messages according to recipient type
-        let messages;
-        if (recipientType === 'user') {
-            // Direct messages between two users
-            messages = await message_1.Message.find({
-                $or: [
-                    { sender: userId, recipientId, recipientType },
-                    { sender: recipientId, recipientId: userId, recipientType: 'user' }
-                ]
-            })
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .populate('sender', 'name avatar')
-                .populate('readBy', 'name')
-                .lean();
-            // Add isMine property for frontend convenience
-            messages = messages.map(msg => ({
-                ...msg,
-                isMine: msg.sender._id.toString() === userId
-            }));
-        }
-        else {
-            // Team or project messages
-            messages = await message_1.Message.find({
-                recipientId,
-                recipientType
-            })
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .populate('sender', 'name avatar')
-                .populate('readBy', 'name')
-                .lean();
-            // Add isMine property for frontend convenience
-            messages = messages.map(msg => ({
-                ...msg,
-                isMine: msg.sender._id.toString() === userId
-            }));
-        }
-        // Mark messages as read
-        if (recipientType === 'user') {
-            await message_1.Message.updateMany({
-                sender: recipientId,
-                recipientId: userId,
-                recipientType: 'user',
-                readBy: { $ne: userId }
-            }, {
-                $addToSet: { readBy: userId },
-                $set: { status: 'read' }
-            });
-        }
-        else {
-            await message_1.Message.updateMany({
-                recipientId,
-                recipientType,
-                readBy: { $ne: userId }
-            }, {
-                $addToSet: { readBy: userId }
-            });
-        }
+        const { otherUserId } = req.params;
+        const messages = await Message_1.Message.find({
+            $or: [
+                { sender: new mongoose_1.Types.ObjectId(userId), recipientId: new mongoose_1.Types.ObjectId(otherUserId), recipientType: 'user' },
+                { sender: new mongoose_1.Types.ObjectId(otherUserId), recipientId: new mongoose_1.Types.ObjectId(userId), recipientType: 'user' }
+            ]
+        }).sort({ createdAt: 1 });
         res.json(messages);
     }
     catch (error) {
-        console.error('Get messages error:', error);
-        res.status(500).json({ message: error.message || 'Error fetching messages' });
+        console.error('Error fetching messages:', error);
+        res.status(500).json({ message: 'Error fetching messages' });
     }
 };
 exports.getMessages = getMessages;
@@ -462,45 +317,25 @@ exports.getMessages = getMessages;
  */
 const getTeamMessages = async (req, res) => {
     try {
-        const teamId = req.params.teamId;
-        const userId = req.userId;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
-        const skip = (page - 1) * limit;
-        // Check if user is a member of the team
-        const isMember = await checkMembership(userId, teamId, 'team');
-        if (!isMember) {
-            return res.status(403).json({ message: 'You must be a team member to view these messages' });
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        // Fetch team messages
-        const messages = await message_1.Message.find({
-            recipientId: teamId,
+        const { teamId } = req.params;
+        // Check if user is team member
+        const isMember = await isTeamMember(teamId, userId?.toString());
+        if (!isMember) {
+            return res.status(403).json({ message: 'Not a team member' });
+        }
+        const messages = await Message_1.Message.find({
+            recipientId: new mongoose_1.Types.ObjectId(teamId),
             recipientType: 'team'
-        })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .populate('sender', 'name avatar')
-            .populate('readBy', 'name')
-            .lean();
-        // Add isMine property
-        const messagesWithIsMine = messages.map(msg => ({
-            ...msg,
-            isMine: msg.sender._id.toString() === userId
-        }));
-        // Mark messages as read
-        await message_1.Message.updateMany({
-            recipientId: teamId,
-            recipientType: 'team',
-            readBy: { $ne: userId }
-        }, {
-            $addToSet: { readBy: userId }
-        });
-        res.json(messagesWithIsMine);
+        }).sort({ createdAt: 1 });
+        res.json(messages);
     }
     catch (error) {
-        console.error('Get team messages error:', error);
-        res.status(500).json({ message: error.message || 'Error fetching team messages' });
+        console.error('Error fetching team messages:', error);
+        res.status(500).json({ message: 'Error fetching team messages' });
     }
 };
 exports.getTeamMessages = getTeamMessages;
@@ -510,45 +345,25 @@ exports.getTeamMessages = getTeamMessages;
  */
 const getProjectMessages = async (req, res) => {
     try {
-        const projectId = req.params.projectId;
-        const userId = req.userId;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
-        const skip = (page - 1) * limit;
-        // Check if user is a member of the project
-        const isMember = await checkMembership(userId, projectId, 'project');
-        if (!isMember) {
-            return res.status(403).json({ message: 'You must be a project member to view these messages' });
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        // Fetch project messages
-        const messages = await message_1.Message.find({
-            recipientId: projectId,
+        const { projectId } = req.params;
+        // Check if user is project member
+        const isMember = await isProjectMember(projectId, userId?.toString());
+        if (!isMember) {
+            return res.status(403).json({ message: 'Not a project member' });
+        }
+        const messages = await Message_1.Message.find({
+            recipientId: new mongoose_1.Types.ObjectId(projectId),
             recipientType: 'project'
-        })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .populate('sender', 'name avatar')
-            .populate('readBy', 'name')
-            .lean();
-        // Add isMine property
-        const messagesWithIsMine = messages.map(msg => ({
-            ...msg,
-            isMine: msg.sender._id.toString() === userId
-        }));
-        // Mark messages as read
-        await message_1.Message.updateMany({
-            recipientId: projectId,
-            recipientType: 'project',
-            readBy: { $ne: userId }
-        }, {
-            $addToSet: { readBy: userId }
-        });
-        res.json(messagesWithIsMine);
+        }).sort({ createdAt: 1 });
+        res.json(messages);
     }
     catch (error) {
-        console.error('Get project messages error:', error);
-        res.status(500).json({ message: error.message || 'Error fetching project messages' });
+        console.error('Error fetching project messages:', error);
+        res.status(500).json({ message: 'Error fetching project messages' });
     }
 };
 exports.getProjectMessages = getProjectMessages;
@@ -558,76 +373,55 @@ exports.getProjectMessages = getProjectMessages;
  */
 const addReaction = async (req, res) => {
     try {
-        const messageId = req.params.messageId;
-        const userId = req.userId;
-        const { reaction } = req.body;
-        if (!mongoose_1.default.Types.ObjectId.isValid(messageId)) {
-            return res.status(400).json({ message: 'Invalid message ID' });
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        const message = await message_1.Message.findById(messageId);
+        const { messageId } = req.params;
+        const { emoji } = req.body;
+        const message = await Message_1.Message.findById(new mongoose_1.Types.ObjectId(messageId));
         if (!message) {
             return res.status(404).json({ message: 'Message not found' });
         }
-        // Check if user can react to this message
-        if (message.recipientType !== 'user' && message.recipientType !== 'team' && message.recipientType !== 'project') {
-            return res.status(400).json({ message: 'Cannot react to this message type' });
-        }
-        // If team or project message, check if user is a member
+        // Check if user has permission to see the message
         if (message.recipientType === 'team') {
-            const isMember = await checkMembership(userId, message.recipientId.toString(), 'team');
-            if (!isMember) {
-                return res.status(403).json({ message: 'You must be a team member to react to this message' });
+            const team = await Team_1.Team.findById(message.recipientId);
+            if (!team) {
+                return res.status(404).json({ message: 'Team not found' });
             }
+            team.members.forEach((member) => {
+                index_1.io.to(member.toString()).emit('messageReaction', { messageId, userId, emoji });
+            });
         }
         else if (message.recipientType === 'project') {
-            const isMember = await checkMembership(userId, message.recipientId.toString(), 'project');
-            if (!isMember) {
-                return res.status(403).json({ message: 'You must be a project member to react to this message' });
+            const project = await Project_1.Project.findById(message.recipientId);
+            if (!project) {
+                return res.status(404).json({ message: 'Project not found' });
             }
+            project.team.forEach((member) => {
+                index_1.io.to(member.toString()).emit('messageReaction', { messageId, userId, emoji });
+            });
         }
-        else if (message.recipientType === 'user' &&
-            message.sender.toString() !== userId &&
-            message.recipientId.toString() !== userId) {
-            return res.status(403).json({ message: 'You cannot react to this message' });
+        else {
+            index_1.io.to(message.recipientId.toString()).emit('messageReaction', { messageId, userId, emoji });
         }
-        // Add the reaction
-        const updatedMessage = await message.addReaction(userId, reaction);
-        // Populate message for response
-        const populatedMessage = await message_1.Message.findById(updatedMessage._id)
-            .populate('sender', 'name avatar')
-            .populate('readBy', 'name');
-        // Notify other users about the reaction
-        if (index_1.io) {
-            if (message.recipientType === 'user') {
-                const recipientId = message.sender.toString() === userId
-                    ? message.recipientId.toString()
-                    : message.sender.toString();
-                index_1.io.to(recipientId).emit('messageUpdated', populatedMessage);
-            }
-            else if (message.recipientType === 'team') {
-                const team = await Team_1.Team.findById(message.recipientId).populate('members');
-                team.members.forEach(member => {
-                    const memberId = member._id.toString();
-                    if (memberId !== userId) {
-                        index_1.io.to(memberId).emit('messageUpdated', populatedMessage);
-                    }
-                });
-            }
-            else if (message.recipientType === 'project') {
-                const project = await Project_1.Project.findById(message.recipientId).populate('team');
-                project.team.forEach(member => {
-                    const memberId = member._id.toString();
-                    if (memberId !== userId) {
-                        index_1.io.to(memberId).emit('messageUpdated', populatedMessage);
-                    }
-                });
-            }
+        // Add reaction
+        if (!message.metadata) {
+            message.metadata = {};
         }
-        res.json(populatedMessage);
+        if (!message.metadata.reactions) {
+            message.metadata.reactions = [];
+        }
+        message.metadata.reactions.push({
+            userId: new mongoose_1.Types.ObjectId(userId),
+            reaction: emoji
+        });
+        await message.save();
+        res.json(message);
     }
     catch (error) {
-        console.error('Add reaction error:', error);
-        res.status(500).json({ message: error.message || 'Error adding reaction' });
+        console.error('Error adding reaction:', error);
+        res.status(500).json({ message: 'Error adding reaction' });
     }
 };
 exports.addReaction = addReaction;
@@ -637,47 +431,43 @@ exports.addReaction = addReaction;
  */
 const removeReaction = async (req, res) => {
     try {
-        const messageId = req.params.messageId;
-        const userId = req.userId;
-        if (!mongoose_1.default.Types.ObjectId.isValid(messageId)) {
-            return res.status(400).json({ message: 'Invalid message ID' });
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        const message = await message_1.Message.findById(messageId);
+        const { messageId } = req.params;
+        const { emoji } = req.body;
+        const message = await Message_1.Message.findById(new mongoose_1.Types.ObjectId(messageId));
         if (!message) {
             return res.status(404).json({ message: 'Message not found' });
         }
-        // Remove the reaction
-        const updatedMessage = await message.removeReaction(userId);
-        // Populate message for response
-        const populatedMessage = await message_1.Message.findById(updatedMessage._id)
-            .populate('sender', 'name avatar')
-            .populate('readBy', 'name');
-        // Notify other users about the removed reaction
-        if (index_1.io) {
-            if (message.recipientType === 'user') {
-                const recipientId = message.sender.toString() === userId
-                    ? message.recipientId.toString()
-                    : message.sender.toString();
-                index_1.io.to(recipientId).emit('messageUpdated', populatedMessage);
-            }
-            else if (message.recipientType === 'team' || message.recipientType === 'project') {
-                // For team or project, notify all members except the current user
-                const entityModel = message.recipientType === 'team' ? Team_1.Team : Project_1.Project;
-                const membersField = message.recipientType === 'team' ? 'members' : 'team';
-                const entity = await entityModel.findById(message.recipientId).populate(membersField);
-                entity[membersField].forEach(member => {
-                    const memberId = member._id.toString();
-                    if (memberId !== userId) {
-                        index_1.io.to(memberId).emit('messageUpdated', populatedMessage);
-                    }
+        // Check if user has permission to see the message
+        if (message.recipientType === 'team') {
+            const team = await Team_1.Team.findById(message.recipientId);
+            if (team) {
+                team.members.forEach((member) => {
+                    index_1.io.to(member.toString()).emit('messageReactionRemoved', { messageId, userId, emoji });
                 });
             }
         }
-        res.json(populatedMessage);
+        else if (message.recipientType === 'project') {
+            const project = await Project_1.Project.findById(message.recipientId);
+            if (project) {
+                project.team.forEach((member) => {
+                    index_1.io.to(member.toString()).emit('messageReactionRemoved', { messageId, userId, emoji });
+                });
+            }
+        }
+        // Remove reaction
+        if (message.metadata?.reactions) {
+            message.metadata.reactions = message.metadata.reactions.filter(reaction => !(reaction.userId.toString() === userId.toString() && reaction.reaction === emoji));
+        }
+        await message.save();
+        res.json(message);
     }
     catch (error) {
-        console.error('Remove reaction error:', error);
-        res.status(500).json({ message: error.message || 'Error removing reaction' });
+        console.error('Error removing reaction:', error);
+        res.status(500).json({ message: 'Error removing reaction' });
     }
 };
 exports.removeReaction = removeReaction;
@@ -687,51 +477,47 @@ exports.removeReaction = removeReaction;
  */
 const deleteMessage = async (req, res) => {
     try {
-        const messageId = req.params.messageId;
-        const userId = req.userId;
-        if (!mongoose_1.default.Types.ObjectId.isValid(messageId)) {
-            return res.status(400).json({ message: 'Invalid message ID' });
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        // Find the message
-        const message = await message_1.Message.findById(messageId);
+        const { messageId } = req.params;
+        const message = await Message_1.Message.findById(new mongoose_1.Types.ObjectId(messageId));
         if (!message) {
             return res.status(404).json({ message: 'Message not found' });
         }
-        // Check if user is the sender of the message
-        if (message.sender.toString() !== userId) {
-            return res.status(403).json({ message: 'You can only delete your own messages' });
+        // Check if user is the sender
+        if (!message.sender.equals(new mongoose_1.Types.ObjectId(userId))) {
+            return res.status(403).json({ message: 'Not authorized' });
         }
-        // Delete the message
-        await message_1.Message.findByIdAndDelete(messageId);
-        // Notify others about the deleted message
-        if (index_1.io) {
-            if (message.recipientType === 'user') {
-                index_1.io.to(message.recipientId.toString()).emit('messageDeleted', { messageId });
+        // Notify recipients
+        if (message.recipientType === 'team') {
+            const team = await Team_1.Team.findById(message.recipientId);
+            if (!team) {
+                return res.status(404).json({ message: 'Team not found' });
             }
-            else if (message.recipientType === 'team') {
-                const team = await Team_1.Team.findById(message.recipientId).populate('members');
-                team.members.forEach(member => {
-                    const memberId = member._id.toString();
-                    if (memberId !== userId) {
-                        index_1.io.to(memberId).emit('messageDeleted', { messageId });
-                    }
-                });
-            }
-            else if (message.recipientType === 'project') {
-                const project = await Project_1.Project.findById(message.recipientId).populate('team');
-                project.team.forEach(member => {
-                    const memberId = member._id.toString();
-                    if (memberId !== userId) {
-                        index_1.io.to(memberId).emit('messageDeleted', { messageId });
-                    }
-                });
-            }
+            team.members.forEach((member) => {
+                index_1.io.to(member.toString()).emit('messageDeleted', messageId);
+            });
         }
+        else if (message.recipientType === 'project') {
+            const project = await Project_1.Project.findById(message.recipientId);
+            if (!project) {
+                return res.status(404).json({ message: 'Project not found' });
+            }
+            project.team.forEach((member) => {
+                index_1.io.to(member.toString()).emit('messageDeleted', messageId);
+            });
+        }
+        else {
+            index_1.io.to(message.recipientId.toString()).emit('messageDeleted', messageId);
+        }
+        await message.deleteOne();
         res.json({ message: 'Message deleted successfully' });
     }
     catch (error) {
-        console.error('Delete message error:', error);
-        res.status(500).json({ message: error.message || 'Error deleting message' });
+        console.error('Error deleting message:', error);
+        res.status(500).json({ message: 'Error deleting message' });
     }
 };
 exports.deleteMessage = deleteMessage;
@@ -741,55 +527,49 @@ exports.deleteMessage = deleteMessage;
  */
 const updateMessage = async (req, res) => {
     try {
-        const messageId = req.params.messageId;
-        const userId = req.userId;
-        const { content } = req.body;
-        if (!mongoose_1.default.Types.ObjectId.isValid(messageId)) {
-            return res.status(400).json({ message: 'Invalid message ID' });
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        // Find the message
-        const message = await message_1.Message.findById(messageId);
+        const { messageId } = req.params;
+        const { content } = req.body;
+        const message = await Message_1.Message.findById(new mongoose_1.Types.ObjectId(messageId));
         if (!message) {
             return res.status(404).json({ message: 'Message not found' });
         }
-        // Check if user is the sender of the message
-        if (message.sender.toString() !== userId) {
-            return res.status(403).json({ message: 'You can only edit your own messages' });
+        // Check if user is the sender
+        if (!message.sender.equals(new mongoose_1.Types.ObjectId(userId))) {
+            return res.status(403).json({ message: 'Not authorized' });
         }
-        // Update the message
+        // Update message
         message.content = content;
         message.metadata = {
             ...message.metadata,
-            edited: true
+            isSystemMessage: false
         };
-        await message.save();
-        // Populate message for response
-        const populatedMessage = await message_1.Message.findById(message._id)
-            .populate('sender', 'name avatar')
-            .populate('readBy', 'name');
-        // Notify others about the updated message
-        if (index_1.io) {
-            if (message.recipientType === 'user') {
-                index_1.io.to(message.recipientId.toString()).emit('messageUpdated', populatedMessage);
-            }
-            else if (message.recipientType === 'team' || message.recipientType === 'project') {
-                // For team or project, notify all members except the current user
-                const entityModel = message.recipientType === 'team' ? Team_1.Team : Project_1.Project;
-                const membersField = message.recipientType === 'team' ? 'members' : 'team';
-                const entity = await entityModel.findById(message.recipientId).populate(membersField);
-                entity[membersField].forEach(member => {
-                    const memberId = member._id.toString();
-                    if (memberId !== userId) {
-                        index_1.io.to(memberId).emit('messageUpdated', populatedMessage);
-                    }
+        // Notify recipients
+        if (message.recipientType === 'team') {
+            const team = await Team_1.Team.findById(message.recipientId);
+            if (team) {
+                team.members.forEach((member) => {
+                    index_1.io.to(member.toString()).emit('messageUpdated', message);
                 });
             }
         }
-        res.json(populatedMessage);
+        else if (message.recipientType === 'project') {
+            const project = await Project_1.Project.findById(message.recipientId);
+            if (project) {
+                project.team.forEach((member) => {
+                    index_1.io.to(member.toString()).emit('messageUpdated', message);
+                });
+            }
+        }
+        await message.save();
+        res.json(message);
     }
     catch (error) {
-        console.error('Update message error:', error);
-        res.status(500).json({ message: error.message || 'Error updating message' });
+        console.error('Error updating message:', error);
+        res.status(500).json({ message: 'Error updating message' });
     }
 };
 exports.updateMessage = updateMessage;
@@ -799,43 +579,46 @@ exports.updateMessage = updateMessage;
  */
 const markAllAsRead = async (req, res) => {
     try {
-        const userId = req.userId;
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
         // Mark all direct messages to the user as read
-        await message_1.Message.updateMany({
-            recipientId: userId,
+        await Message_1.Message.updateMany({
+            recipientId: new mongoose_1.Types.ObjectId(userId),
             recipientType: 'user',
-            readBy: { $ne: userId }
+            'metadata.readBy': { $ne: new mongoose_1.Types.ObjectId(userId) }
         }, {
-            $addToSet: { readBy: userId },
+            $addToSet: { 'metadata.readBy': new mongoose_1.Types.ObjectId(userId) },
             $set: { status: 'read' }
         });
         // Mark all team messages as read
-        const userTeams = await Team_1.Team.find({ members: userId });
+        const userTeams = await Team_1.Team.find({ members: new mongoose_1.Types.ObjectId(userId) });
         for (const team of userTeams) {
-            await message_1.Message.updateMany({
+            await Message_1.Message.updateMany({
                 recipientId: team._id,
                 recipientType: 'team',
-                readBy: { $ne: userId }
+                'metadata.readBy': { $ne: new mongoose_1.Types.ObjectId(userId) }
             }, {
-                $addToSet: { readBy: userId }
+                $addToSet: { 'metadata.readBy': new mongoose_1.Types.ObjectId(userId) }
             });
         }
         // Mark all project messages as read
-        const userProjects = await Project_1.Project.find({ team: userId });
+        const userProjects = await Project_1.Project.find({ team: new mongoose_1.Types.ObjectId(userId) });
         for (const project of userProjects) {
-            await message_1.Message.updateMany({
+            await Message_1.Message.updateMany({
                 recipientId: project._id,
                 recipientType: 'project',
-                readBy: { $ne: userId }
+                'metadata.readBy': { $ne: new mongoose_1.Types.ObjectId(userId) }
             }, {
-                $addToSet: { readBy: userId }
+                $addToSet: { 'metadata.readBy': new mongoose_1.Types.ObjectId(userId) }
             });
         }
         res.json({ message: 'All messages marked as read' });
     }
     catch (error) {
-        console.error('Mark all as read error:', error);
-        res.status(500).json({ message: error.message || 'Error marking messages as read' });
+        console.error('Error marking messages as read:', error);
+        res.status(500).json({ message: 'Error marking messages as read' });
     }
 };
 exports.markAllAsRead = markAllAsRead;
@@ -845,74 +628,23 @@ exports.markAllAsRead = markAllAsRead;
  */
 const markAsRead = async (req, res) => {
     try {
-        const recipientId = req.params.recipientId;
-        const userId = req.userId;
-        if (!mongoose_1.default.Types.ObjectId.isValid(recipientId)) {
-            return res.status(400).json({ message: 'Invalid recipient ID' });
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        // Check if recipient exists and determine type
-        let recipientType = 'user';
-        let recipient;
-        recipient = await User_1.User.findById(recipientId);
-        if (recipient) {
-            recipientType = 'user';
-            // Mark direct messages as read
-            await message_1.Message.updateMany({
-                sender: recipientId,
-                recipientId: userId,
-                recipientType: 'user',
-                readBy: { $ne: userId }
-            }, {
-                $addToSet: { readBy: userId },
-                $set: { status: 'read' }
-            });
-        }
-        else {
-            recipient = await Team_1.Team.findById(recipientId);
-            if (recipient) {
-                recipientType = 'team';
-                // Check if user is a member of the team
-                const isMember = await checkMembership(userId, recipientId, 'team');
-                if (!isMember) {
-                    return res.status(403).json({ message: 'You must be a team member to mark these messages as read' });
-                }
-                // Mark team messages as read
-                await message_1.Message.updateMany({
-                    recipientId,
-                    recipientType: 'team',
-                    readBy: { $ne: userId }
-                }, {
-                    $addToSet: { readBy: userId }
-                });
-            }
-            else {
-                recipient = await Project_1.Project.findById(recipientId);
-                if (recipient) {
-                    recipientType = 'project';
-                    // Check if user is a member of the project
-                    const isMember = await checkMembership(userId, recipientId, 'project');
-                    if (!isMember) {
-                        return res.status(403).json({ message: 'You must be a project member to mark these messages as read' });
-                    }
-                    // Mark project messages as read
-                    await message_1.Message.updateMany({
-                        recipientId,
-                        recipientType: 'project',
-                        readBy: { $ne: userId }
-                    }, {
-                        $addToSet: { readBy: userId }
-                    });
-                }
-                else {
-                    return res.status(404).json({ message: 'Recipient not found' });
-                }
-            }
-        }
+        const { messageIds } = req.body;
+        await Message_1.Message.updateMany({
+            _id: { $in: messageIds },
+            recipientId: new mongoose_1.Types.ObjectId(userId),
+            'metadata.readBy': { $ne: new mongoose_1.Types.ObjectId(userId) }
+        }, {
+            $addToSet: { 'metadata.readBy': new mongoose_1.Types.ObjectId(userId) }
+        });
         res.json({ message: 'Messages marked as read' });
     }
     catch (error) {
-        console.error('Mark messages as read error:', error);
-        res.status(500).json({ message: error.message || 'Error marking messages as read' });
+        console.error('Error marking messages as read:', error);
+        res.status(500).json({ message: 'Error marking messages as read' });
     }
 };
 exports.markAsRead = markAsRead;
@@ -922,47 +654,66 @@ exports.markAsRead = markAsRead;
  */
 const getUnreadCount = async (req, res) => {
     try {
-        const userId = req.userId;
-        // Get count of unread direct messages
-        const directMessageCount = await message_1.Message.countDocuments({
-            recipientId: userId,
-            recipientType: 'user',
-            readBy: { $ne: userId }
-        });
-        // Get count of unread team messages
-        const userTeams = await Team_1.Team.find({ members: userId });
-        let teamMessageCount = 0;
-        for (const team of userTeams) {
-            const count = await message_1.Message.countDocuments({
-                recipientId: team._id,
-                recipientType: 'team',
-                readBy: { $ne: userId }
-            });
-            teamMessageCount += count;
+        const userId = req.user && req.user._id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
         }
-        // Get count of unread project messages
-        const userProjects = await Project_1.Project.find({ team: userId });
-        let projectMessageCount = 0;
-        for (const project of userProjects) {
-            const count = await message_1.Message.countDocuments({
-                recipientId: project._id,
-                recipientType: 'project',
-                readBy: { $ne: userId }
-            });
-            projectMessageCount += count;
-        }
-        // Total unread count
-        const totalUnread = directMessageCount + teamMessageCount + projectMessageCount;
-        res.json({
-            total: totalUnread,
-            direct: directMessageCount,
-            team: teamMessageCount,
-            project: projectMessageCount
+        const count = await Message_1.Message.countDocuments({
+            recipientId: new mongoose_1.Types.ObjectId(userId),
+            'metadata.readBy': { $ne: new mongoose_1.Types.ObjectId(userId) }
         });
+        res.json({ count });
     }
     catch (error) {
-        console.error('Get unread count error:', error);
-        res.status(500).json({ message: error.message || 'Error getting unread count' });
+        console.error('Error getting unread count:', error);
+        res.status(500).json({ message: 'Error getting unread count' });
     }
 };
 exports.getUnreadCount = getUnreadCount;
+/**
+ * Create a conversation
+ * @route POST /api/messages/conversation
+ */
+const createConversation = async (req, res) => {
+    try {
+        const userId = req.user && req.user._id;
+        const { userId: otherUserId } = req.body;
+        if (!userId || !otherUserId) {
+            return res.status(400).json({ message: 'Missing userId' });
+        }
+        if (userId.toString() === otherUserId) {
+            return res.status(400).json({ message: 'Cannot start a conversation with yourself' });
+        }
+        // Find existing messages between the two users
+        const messages = await Message_1.Message.find({
+            recipientType: 'user',
+            $or: [
+                { sender: userId, recipientId: otherUserId },
+                { sender: otherUserId, recipientId: userId }
+            ]
+        }).sort({ createdAt: 1 });
+        // Get the other user's info
+        const otherUser = await User_1.User.findById(otherUserId).select('name avatar email');
+        if (!otherUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        // Compose conversation object
+        const conversation = {
+            _id: [userId, otherUserId].sort().join('-'),
+            name: otherUser.name,
+            avatar: otherUser.avatar,
+            type: 'direct',
+            participants: [
+                { id: userId, name: req.user?.name, avatar: req.user?.avatar },
+                { id: otherUserId, name: otherUser.name, avatar: otherUser.avatar }
+            ],
+            messages,
+            lastMessage: messages.length ? messages[messages.length - 1] : null
+        };
+        res.json({ conversation });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Error creating conversation' });
+    }
+};
+exports.createConversation = createConversation;

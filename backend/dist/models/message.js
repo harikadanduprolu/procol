@@ -104,15 +104,25 @@ MessageSchema.methods.markAsRead = async function (userId) {
     return this;
 };
 MessageSchema.methods.addReaction = async function (userId, reaction) {
+    if (!this.metadata) {
+        this.metadata = {};
+    }
+    if (!this.metadata.reactions) {
+        this.metadata.reactions = [];
+    }
     // Remove existing reaction from this user if any
-    this.metadata.reactions = this.metadata.reactions.filter(r => !r.userId.equals(userId));
+    this.metadata.reactions = this.metadata.reactions.filter((r) => !r.userId.equals(userId));
     // Add new reaction
     this.metadata.reactions.push({ userId, reaction });
-    return this.save();
+    await this.save();
+    return this;
 };
 MessageSchema.methods.removeReaction = async function (userId) {
-    this.metadata.reactions = this.metadata.reactions.filter(r => !r.userId.equals(userId));
-    return this.save();
+    if (this.metadata?.reactions) {
+        this.metadata.reactions = this.metadata.reactions.filter((r) => !r.userId.equals(userId));
+        await this.save();
+    }
+    return this;
 };
 // Static methods
 MessageSchema.statics.findConversation = async function (userOrEntityId, recipientId, recipientType, limit = 50, skip = 0) {

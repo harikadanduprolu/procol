@@ -58,10 +58,12 @@ const getFundings = async (req, res) => {
     try {
         const { search, status } = req.query;
         const query = {};
-        if (search)
+        if (search) {
             query.$text = { $search: search };
-        if (status)
+        }
+        if (status) {
             query.status = status;
+        }
         const fundings = await Funding_1.Funding.find(query)
             .populate('creator', 'name email avatar')
             .populate('project', 'title description')

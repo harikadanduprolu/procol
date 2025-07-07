@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeTeamMember = exports.addTeamMember = exports.deleteTeam = exports.updateTeam = exports.getTeam = exports.getTeams = exports.createTeam = void 0;
+exports.getUserTeams = exports.removeTeamMember = exports.addTeamMember = exports.deleteTeam = exports.updateTeam = exports.getTeam = exports.getTeams = exports.createTeam = void 0;
 const Team_1 = require("../models/Team");
 const zod_1 = require("zod");
 const mongoose_1 = require("mongoose");
@@ -41,8 +41,9 @@ const getTeams = async (req, res) => {
     try {
         const { search } = req.query;
         const query = {};
-        if (search)
+        if (search) {
             query.$text = { $search: search };
+        }
         const teams = await Team_1.Team.find(query)
             .populate('leader', 'name email avatar')
             .populate('members', 'name email avatar')
@@ -170,3 +171,27 @@ const removeTeamMember = async (req, res) => {
     }
 };
 exports.removeTeamMember = removeTeamMember;
+const getUserTeams = async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+        const teams = await Team_1.Team.find({ members: req.user._id })
+            .populate('leader', 'name email avatar')
+            .populate('members', 'name email avatar')
+            .populate('projects', 'title');
+        const teamsWithCounts = teams.map((team) => ({
+            _id: team._id,
+            name: team.name,
+            role: req.user && team.leader.equals(req.user._id) ? 'Leader' : 'Member',
+            members: team.members.length,
+            projects: team.projects.length,
+        }));
+        res.json({ teams: teamsWithCounts });
+    }
+    catch (error) {
+        console.error('Error fetching user teams:', error);
+        res.status(500).json({ message: 'Error fetching user teams' });
+    }
+};
+exports.getUserTeams = getUserTeams;

@@ -1,14 +1,18 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User, IUser } from '../models/User';
-import { z } from 'zod';
+import { optional, z } from 'zod';
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Validation schemas
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(2),
-  role: z.enum(['user', 'mentor', 'admin','funder']).optional()
+  role: z.enum(['user', 'mentor', 'admin', 'funder']).optional()
 });
 
 const loginSchema = z.object({
@@ -29,6 +33,54 @@ const updateProfileSchema = z.object({
     website: z.string().optional()
   }).optional()
 });
+
+// function to send mail
+export async function sendOtpEmail(email: string, otp: string): Promise<void> {
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER!,
+      pass: process.env.EMAIL_PASSWORD!
+    }
+  });
+
+  try {
+    await transporter.sendMail({
+      from: `"Procollab" ${process.env.EMAIL_USER}`,
+      to: email,
+      subject: 'Verify your account',
+      html: `<p>Hello, your OTP is <b>${otp}</b>. It expires in 10 minutes.</p>
+      <h1>Hey please suscribe my app and please use my app</h1>
+      `
+    });
+  } catch (error) {
+    throw error
+  }
+
+}
+
+// calls otp sending function
+export const otp = async (req: Request, res: Response) => {
+  try {
+
+    const { email } = req.body
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).send({ message: 'User already exists' });
+    }
+
+    // sends opt 
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await sendOtpEmail(email, otp)
+    return res.send({ message: "The otp is generated", otp: otp })
+
+  } catch (err) {
+    res.status(400).send({ message: err })
+  }
+}
 
 export const register = async (req: Request, res: Response) => {
   try {

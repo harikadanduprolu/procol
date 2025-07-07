@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { authApi } from '../services/api'
+import { ToastAction } from '@radix-ui/react-toast';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -27,7 +29,7 @@ const Signup = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords don't match");
       return;
@@ -35,9 +37,11 @@ const Signup = () => {
 
     try {
       setIsLoading(true);
-      await signup(formData.name, formData.email, formData.password);
-      toast.success("Account created successfully! Please complete your profile.");
-      navigate('/profile');
+      localStorage.setItem("userdetails", JSON.stringify(formData))
+      const otpResponse = await authApi.otp({ email: formData.email });
+      const otp = otpResponse?.data?.otp || '';
+      document.cookie = `otp = ${otp} ; expires = ${new Date(Date.now() + 2 * 60 * 1000).toUTCString()}; path=/`;
+      navigate('/otpverification');
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to create account");
     } finally {
