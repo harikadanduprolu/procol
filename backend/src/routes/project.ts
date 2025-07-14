@@ -6,7 +6,8 @@ import {
   updateProject, 
   deleteProject,
   addTeamMember,
-  removeTeamMember
+  removeTeamMember,
+  getUserProjects
 } from '../controllers/project';
 import { auth } from '../middleware/auth';
 // import { upload } from '../middleware/upload';
@@ -26,5 +27,6 @@ router.put('/:id', auth, upload.single('image'), updateProject);
 router.delete('/:id', auth, deleteProject);
 router.post('/:id/team', auth, addTeamMember);
 router.delete('/:id/team', auth, removeTeamMember);
+router.get('/user/projects', auth, getUserProjects); // GET /api/projects/user/projects
 
-export default router; 
+export default router;

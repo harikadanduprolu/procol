@@ -88,6 +88,8 @@ export const projectApi = {
 
   removeTeamMember: (id: string, userId: string) =>
     api.delete(`/projects/${id}/team`, { data: { userId } }),
+
+  getUserProjects: (params?: any) => api.get('/projects/user/projects', { params }),
 };
 
 // Team API

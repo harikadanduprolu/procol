@@ -58,7 +58,7 @@ const Profile = () => {
   // Fetch user's projects
   const { data: projectsData, isLoading: isLoadingProjects } = useApiQuery(
     ['user-projects'],
-    () => projectApi.getAll({ owner: authUser?._id }),
+    () => projectApi.getUserProjects(),
     {
       enabled: !!authUser?._id,
       retry: 1
