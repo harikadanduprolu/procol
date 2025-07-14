@@ -13,7 +13,7 @@ import { useApiQuery } from '@/hooks/useApiQuery';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Projects = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('newest');
@@ -44,6 +44,22 @@ const Projects = () => {
   const projects = projectsData?.data?.projects || [];
   const pagination = projectsData?.data?.pagination;
   
+  // Filter out projects where user is involved (owner or team member)
+  const filteredProjects = projects.filter(project => {
+    if (!user) return true; // If no user, show all projects
+    
+    // Check if user is the owner
+    const isOwner = project.owner === user._id || project.owner?._id === user._id;
+    
+    // Check if user is a team member
+    const isTeamMember = project.team?.some((member: any) => 
+      member === user._id || member?._id === user._id
+    );
+    
+    // Return false if user is involved (to filter out)
+    return !isOwner && !isTeamMember;
+  });
+  
   const addFilter = (tag: string) => {
     if (!activeFilters.includes(tag)) {
       setActiveFilters([...activeFilters, tag]);
@@ -72,7 +88,8 @@ const Projects = () => {
     setDuration(duration === value ? null : value);
   };
   
-  const filteredProjects = projects.filter(project => {
+  // Apply additional filters on the already filtered projects
+  const finalFilteredProjects = filteredProjects.filter(project => {
     const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDifficulty = !difficulty || project.difficulty === difficulty;
@@ -239,7 +256,12 @@ const Projects = () => {
               <>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-content-primary">
-                    {pagination?.total || 0} projects found
+                    {finalFilteredProjects.length} projects found
+                    {user && filteredProjects.length !== projects.length && (
+                      <span className="text-sm text-content-secondary block">
+                        (Excluding {projects.length - filteredProjects.length} projects you're involved in)
+                      </span>
+                    )}
                   </h2>
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-[180px] bg-surface-dark/50 border-white/10">
@@ -253,21 +275,36 @@ const Projects = () => {
                   </Select>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {projects.map((project) => (
-                    <ProjectCard 
-                      key={project._id}
-                      id={project._id}
-                      title={project.title}
-                      description={project.description}
-                      tags={project.tags || []}
-                      teamSize={project.team?.length || 1}
-                      duration={project.duration || "3-6 months"}
-                      difficulty={project.difficulty || "Medium"}
-                      image={project.image}
-                    />
-                  ))}
-                </div>
+                {finalFilteredProjects.length === 0 ? (
+                  <div className="text-center py-20">
+                    <p className="text-content-secondary text-lg mb-4">
+                      {filteredProjects.length === 0 && projects.length > 0 
+                        ? "You're involved in all available projects!" 
+                        : "No projects match your search criteria."}
+                    </p>
+                    {filteredProjects.length === 0 && projects.length > 0 && (
+                      <p className="text-content-secondary text-sm">
+                        Visit your profile to see the projects you're working on.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {finalFilteredProjects.map((project) => (
+                      <ProjectCard 
+                        key={project._id}
+                        id={project._id}
+                        title={project.title}
+                        description={project.description}
+                        tags={project.tags || []}
+                        teamSize={project.team?.length || 1}
+                        duration={project.duration || "3-6 months"}
+                        difficulty={project.difficulty || "Medium"}
+                        image={project.image}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {/* Pagination */}
                 {pagination && pagination.pages > 1 && (
