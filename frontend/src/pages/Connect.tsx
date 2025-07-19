@@ -8,69 +8,35 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Users, Filter } from 'lucide-react';
+import { connect } from 'http2';
+import { authApi } from '@/services/api';
+import { useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
-const Teams = () => {
+const Connect = () => {
+  const { user: authUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
-  
-  const members = [
-    {
-      name: "Alex Rivera",
-      role: "Full Stack Developer",
-      skills: ["React", "Node.js", "MongoDB"],
-      university: "Stanford University",
-      id: "alex-rivera"
-    },
-    {
-      name: "Mia Chen",
-      role: "UX Designer",
-      skills: ["Figma", "User Research", "Prototyping"],
-      university: "Carnegie Mellon",
-      id: "mia-chen"
-    },
-    {
-      name: "Jordan Taylor",
-      role: "Data Scientist",
-      skills: ["Python", "ML", "Data Analysis"],
-      university: "MIT",
-      id: "jordan-taylor"
-    },
-    {
-      name: "Sam Wilson",
-      role: "Mobile Developer",
-      skills: ["Flutter", "Firebase", "UI Design"],
-      university: "UC Berkeley",
-      id: "sam-wilson"
-    },
-    {
-      name: "Aisha Johnson",
-      role: "AI Researcher",
-      skills: ["TensorFlow", "Python", "NLP"],
-      university: "Georgia Tech",
-      id: "aisha-johnson"
-    },
-    {
-      name: "Carlos Mendez",
-      role: "Hardware Engineer",
-      skills: ["Arduino", "PCB Design", "IoT"],
-      university: "Caltech",
-      id: "carlos-mendez"
-    },
-    {
-      name: "Zoe Williams",
-      role: "Project Manager",
-      skills: ["Agile", "Team Leadership", "Strategy"],
-      university: "Harvard University",
-      id: "zoe-williams"
-    },
-    {
-      name: "Eric Chang",
-      role: "Game Developer",
-      skills: ["Unity", "C#", "3D Modeling"],
-      university: "NYU",
-      id: "eric-chang"
-    }
-  ];
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery) params.append('search', searchQuery);
+        if (activeFilters.length > 0) params.append('skills', activeFilters.join(','));
+        // Add more params as needed (role, university, sort)
+        const res = await authApi.getAllUsers(params.toString());
+        setUsers(res.data.users || []);
+      } catch (err) {
+        setUsers([]);
+      }
+      setLoading(false);
+    };
+    fetchUsers();
+  }, [searchQuery, activeFilters]);
   
   const popularSkills = ["React", "Python", "UX Design", "Machine Learning", "AI", "Mobile Dev", "Leadership", "UI Design", "AR/VR"];
   
@@ -89,19 +55,17 @@ const Teams = () => {
     setSearchQuery('');
   };
   
-  const filteredMembers = members.filter(member => {
-    // Filter by search query
-    const matchesSearch = searchQuery === '' || 
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      member.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.university.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Filter by skills
-    const matchesSkills = activeFilters.length === 0 || 
-      activeFilters.some(skill => member.skills.includes(skill));
-    
-    return matchesSearch && matchesSkills;
-  });
+  const filteredMembers = users
+    .filter(member => member.role !== 'mentor')
+    .filter(member => {
+      const matchesSearch = searchQuery === '' ||
+        member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        member.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        member.university?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSkills = activeFilters.length === 0 ||
+        (member.skills && activeFilters.some(skill => member.skills.includes(skill)));
+      return matchesSearch && matchesSkills;
+    });
   
   return (
     <div className="min-h-screen">
@@ -113,14 +77,14 @@ const Teams = () => {
         <div className="container mx-auto relative z-10">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold mb-4 gradient-text text-glow">
-              Find Teammates
+            Find Teammates
             </h1>
             <p className="text-content-secondary text-lg mb-8">
-              Connect with talented students who have the skills you need for your next project.
+            Connect with talented students who have the skills you need for your projects.
             </p>
             <Button className="bg-neon-blue hover:bg-neon-blue/80 text-white flex items-center gap-2">
               <Users size={18} />
-              Find Teammates
+              Connect Now
             </Button>
           </div>
         </div>
@@ -234,24 +198,26 @@ const Teams = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {filteredMembers.map((member, index) => (
-                <TeamMemberCard key={index} {...member} />
-              ))}
+              {loading ? (
+                <div className="col-span-full text-center text-content-secondary py-8">Loading members...</div>
+              ) : filteredMembers.length > 0 ? (
+                filteredMembers.map((member, index) => (
+                  <TeamMemberCard key={index} {...member} />
+                ))
+              ) : (
+                <div className="col-span-full glass-card rounded-xl p-8 text-center">
+                  <h3 className="text-xl font-semibold text-content-primary mb-2">No members found</h3>
+                  <p className="text-content-secondary mb-6">Try adjusting your search or filters to find teammates.</p>
+                  <Button 
+                    variant="outline" 
+                    className="border-neon-blue text-neon-blue hover:bg-neon-blue/10"
+                    onClick={clearFilters}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
             </div>
-            
-            {filteredMembers.length === 0 && (
-              <div className="glass-card rounded-xl p-8 text-center">
-                <h3 className="text-xl font-semibold text-content-primary mb-2">No members found</h3>
-                <p className="text-content-secondary mb-6">Try adjusting your search or filters to find teammates.</p>
-                <Button 
-                  variant="outline" 
-                  className="border-neon-blue text-neon-blue hover:bg-neon-blue/10"
-                  onClick={clearFilters}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
             
             {filteredMembers.length > 0 && (
               <div className="mt-10 text-center">
@@ -269,4 +235,4 @@ const Teams = () => {
   );
 };
 
-export default Teams;
+export default Connect;

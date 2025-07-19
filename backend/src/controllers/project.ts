@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Project, IProject } from '../models/Project';
 import { z } from 'zod';
 import { Types } from 'mongoose';
+import { Notification } from '../models/Notification';
 
 const projectSchema = z.object({
   title: z.string().min(1),
@@ -453,3 +454,61 @@ export const getUserProjects = async (req: Request, res: Response) => {
     }
   }
 };
+
+// Add this method to handle project applications
+
+export const applyToProject = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const { id } = req.params;
+    const { message } = req.body;
+    const userId = req.user._id as Types.ObjectId;
+
+    const project = await Project.findById(id).populate('owner', 'name email');
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if user is already a team member
+    const isAlreadyMember = project.team.some(member => member.toString() === userId.toString());
+    if (isAlreadyMember) {
+      return res.status(400).json({ message: 'You are already a team member' });
+    }
+
+    // Create notification for project owner
+    const notification = new Notification({
+      recipient: project.owner._id,
+      type: 'project',
+      title: 'New Project Application',
+      content: `${req.user.name} has applied to join your project "${project.title}".`,
+      relatedProject: project._id,
+      relatedUser: userId
+    });
+
+    await notification.save();
+
+    // You can also create a ProjectApplication model to track applications
+    // const application = new ProjectApplication({
+    //   project: project._id,
+    //   applicant: userId,
+    //   message,
+    //   status: 'pending'
+    // });
+    // await application.save();
+
+    res.status(201).json({ 
+      message: 'Application submitted successfully',
+      notification 
+    });
+
+  } catch (error) {
+    console.error('Error applying to project:', error);
+    res.status(500).json({ message: 'Error submitting application' });
+  }
+};
+
+// Add this to your project routes
+// router.post('/:id/apply', applyToProject);

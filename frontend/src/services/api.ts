@@ -60,6 +60,13 @@ export const authApi = {
 
   searchUsers: (query: string) =>
     api.get(`/auth/users/search?query=${encodeURIComponent(query)}`),
+
+  getAllUsers: (params?: string) => {
+    const url = params ? `/auth/users?${params}` : '/auth/users';
+    return api.get(url);
+  },
+
+  getUserById: (id: string) => api.get(`/auth/users/${id}`),
 };
 
 // Project API
@@ -90,6 +97,15 @@ export const projectApi = {
     api.delete(`/projects/${id}/team`, { data: { userId } }),
 
   getUserProjects: (params?: any) => api.get('/projects/user/projects', { params }),
+
+  applyToProject: (projectId: string, data: { message?: string }) =>
+    api.post(`/projects/${projectId}/apply`, data),
+
+  getApplications: (projectId: string) =>
+    api.get(`/projects/${projectId}/applications`),
+
+  respondToApplication: (projectId: string, applicationId: string, data: { action: 'accept' | 'reject', message?: string }) =>
+    api.put(`/projects/${projectId}/applications/${applicationId}`, data),
 };
 
 // Team API
@@ -163,20 +179,24 @@ export const messageApi = {
 
 // Notification API
 export const notificationApi = {
-  getAll: () =>
-    api.get('/notifications'),
+  create: (data: {
+    recipient: string;
+    type: 'project' | 'team' | 'funding' | 'message' | 'system';
+    title: string;
+    content: string;
+    relatedProject?: string;
+    relatedTeam?: string;
+    relatedFunding?: string;
+    relatedUser?: string;
+  }) => api.post('/notifications', data),
 
-  create: (data: any) =>
-    api.post('/notifications', data),
+  getAll: () => api.get('/notifications'),
 
-  markAsRead: (id: string) =>
-    api.put(`/notifications/${id}/read`),
+  markAsRead: (id: string) => api.put(`/notifications/${id}/read`),
 
-  markAllAsRead: () =>
-    api.put('/notifications/all/read'),
+  markAllAsRead: () => api.put('/notifications/all/read'),
 
-  delete: (id: string) =>
-    api.delete(`/notifications/${id}`),
+  delete: (id: string) => api.delete(`/notifications/${id}`),
 };
 
 // Mentor API

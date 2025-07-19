@@ -103,7 +103,7 @@ io.on('connection', (socket) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
-app.use('/api/teams', teamRoutes);
+app.use('/api/connect', teamRoutes);
 app.use('/api/funding', fundingRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);

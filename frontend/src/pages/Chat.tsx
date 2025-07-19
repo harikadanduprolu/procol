@@ -286,6 +286,9 @@ const Chat = () => {
         {/* Top-level Tab Navigation */}
         <Tabs defaultValue="teams" onValueChange={setChatType} className="w-full">
           <TabsList className="mb-6 bg-zinc-800 p-1 rounded-lg max-w-md">
+            <TabsTrigger value="users" className="flex-1 data-[state=active]:bg-neon-green/20">
+              <User className="mr-2 h-4 w-4" /> All
+            </TabsTrigger>
             <TabsTrigger value="teams" className="flex-1 data-[state=active]:bg-neon-purple/20">
               <Users className="mr-2 h-4 w-4" /> Teams
             </TabsTrigger>
