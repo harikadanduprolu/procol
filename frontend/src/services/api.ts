@@ -61,10 +61,9 @@ export const authApi = {
   searchUsers: (query: string) =>
     api.get(`/auth/users/search?query=${encodeURIComponent(query)}`),
 
-  getAllUsers: (params?: string) => {
-    const url = params ? `/auth/users?${params}` : '/auth/users';
-    return api.get(url);
-  },
+  getAllUsers: (params?: Record<string, any>) => 
+    api.get('/auth/users', { params }),
+  
 
   getUserById: (id: string) => api.get(`/auth/users/${id}`),
 };

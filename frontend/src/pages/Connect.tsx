@@ -24,11 +24,11 @@ const Connect = () => {
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams();
-        if (searchQuery) params.append('search', searchQuery);
-        if (activeFilters.length > 0) params.append('skills', activeFilters.join(','));
+        const params: Record<string, any> = {};
+        if (searchQuery) params.search = searchQuery;
+        if (activeFilters.length > 0) params.skills = activeFilters.join(',');
         // Add more params as needed (role, university, sort)
-        const res = await authApi.getAllUsers(params.toString());
+        const res = await authApi.getAllUsers(params);
         setUsers(res.data.users || []);
       } catch (err) {
         setUsers([]);
