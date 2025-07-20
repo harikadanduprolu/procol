@@ -116,7 +116,7 @@ io.on('connection', (socket) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
-app.use('/api/connect', authRoutes);
+//app.use('/api/connect', authRoutes);
 app.use('/api/funding', fundingRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
