@@ -8,7 +8,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = require("../models/User");
 const auth = async (req, res, next) => {
     try {
-        const token = req.header('Authorization')?.replace('Bearer', '');
+        const token = req.header('Authorization')?.replace('Bearer ', '').trim();
         if (!token) {
             throw new Error();
         }

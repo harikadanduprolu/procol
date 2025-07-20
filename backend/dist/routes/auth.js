@@ -13,4 +13,5 @@ router.post('/login', auth_1.login);
 // Protected routes
 router.get('/profile', auth_2.auth, auth_1.getProfile);
 router.put('/profile', auth_2.auth, auth_1.updateProfile);
+router.get('/users/search', auth_1.searchUsers);
 exports.default = router;

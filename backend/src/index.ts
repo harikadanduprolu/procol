@@ -116,11 +116,13 @@ io.on('connection', (socket) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
-app.use('/api/teams', teamRoutes);
+app.use('/api/connect', authRoutes);
 app.use('/api/funding', fundingRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/mentors', mentorRoutes); // <-- Add this line
+app.use('/api/teams', teamRoutes);
+
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

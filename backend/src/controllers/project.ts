@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Project, IProject } from '../models/Project';
 import { z } from 'zod';
 import { Types } from 'mongoose';
+import { Notification } from '../models/Notification';
 
 const projectSchema = z.object({
   title: z.string().min(1),
@@ -79,6 +80,12 @@ export const getProjects = async (req: Request, res: Response) => {
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
+
+    // Exclude projects where the user is the owner or a team member
+    if (req.user && req.user._id) {
+      query.owner = { $ne: req.user._id };
+      query.team = { $ne: req.user._id };
+    }
 
     // Build query
     if (category) { query.category = category; }
@@ -321,3 +328,187 @@ export const removeTeamMember = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error removing team member' });
   }
 };
+
+export const getUserProjects = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const { 
+      category, 
+      status, 
+      search, 
+      tags, 
+      difficulty, 
+      duration, 
+      sort,
+      page = '1',
+      limit = '10'
+    } = req.query;
+
+    const query: any = {};
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Include projects where the user is the owner OR a team member
+    query.$or = [
+      { owner: req.user._id },
+      { team: req.user._id }
+    ];
+
+    // Build additional query filters
+    if (category) { query.category = category; }
+    if (status) {
+      query.status = status;
+    }
+    
+    // Handle text search
+    if (search) {
+      try {
+        query.$text = { $search: search as string };
+      } catch (error) {
+        console.warn('Text search failed, falling back to regex search:', error);
+        query.$and = [
+          { $or: [
+            { owner: req.user._id },
+            { team: req.user._id }
+          ]},
+          { $or: [
+            { title: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } }
+          ]}
+        ];
+        delete query.$or; // Remove the original $or since we're using $and
+      }
+    }
+    
+    // Filter by tags
+    if (tags) {
+      const tagArray = (tags as string).split(',');
+      if (tagArray.length > 0) {
+        query.tags = { $in: tagArray };
+      }
+    }
+    
+    // Filter by difficulty
+    if (difficulty) {
+      query.difficulty = difficulty;
+    }
+    
+    // Filter by duration
+    if (duration) {
+      query.duration = duration;
+    }
+
+    // Determine sort order
+    let sortOption = {};
+    if (sort) {
+      switch (sort) {
+        case 'newest':
+          sortOption = { createdAt: -1 };
+          break;
+        case 'popular':
+          sortOption = { team: -1 };
+          break;
+        case 'deadline':
+          sortOption = { deadline: 1 };
+          break;
+        default:
+          sortOption = { createdAt: -1 };
+      }
+    } else {
+      sortOption = { createdAt: -1 };
+    }
+
+    // Get total count for pagination
+    const total = await Project.countDocuments(query);
+
+    // Fetch user's projects with pagination
+    const projects = await Project.find(query)
+      .populate('owner', 'name email avatar')
+      .populate('team', 'name email avatar')
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum);
+
+    res.json({
+      projects,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user projects:', error);
+    if (error instanceof Error) {
+      res.status(500).json({ 
+        message: 'Error fetching user projects',
+        error: error.message 
+      });
+    } else {
+      res.status(500).json({ message: 'Error fetching user projects' });
+    }
+  }
+};
+
+// Add this method to handle project applications
+
+export const applyToProject = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const { id } = req.params;
+    const { message } = req.body;
+    const userId = req.user._id as Types.ObjectId;
+
+    const project = await Project.findById(id).populate('owner', 'name email');
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if user is already a team member
+    const isAlreadyMember = project.team.some(member => member.toString() === userId.toString());
+    if (isAlreadyMember) {
+      return res.status(400).json({ message: 'You are already a team member' });
+    }
+
+    // Create notification for project owner
+    const notification = new Notification({
+      recipient: project.owner._id,
+      type: 'project',
+      title: 'New Project Application',
+      content: `${req.user.name} has applied to join your project "${project.title}".`,
+      relatedProject: project._id,
+      relatedUser: userId
+    });
+
+    await notification.save();
+
+    // You can also create a ProjectApplication model to track applications
+    // const application = new ProjectApplication({
+    //   project: project._id,
+    //   applicant: userId,
+    //   message,
+    //   status: 'pending'
+    // });
+    // await application.save();
+
+    res.status(201).json({ 
+      message: 'Application submitted successfully',
+      notification 
+    });
+
+  } catch (error) {
+    console.error('Error applying to project:', error);
+    res.status(500).json({ message: 'Error submitting application' });
+  }
+};
+
+// Add this to your project routes
+// router.post('/:id/apply', applyToProject);

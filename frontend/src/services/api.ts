@@ -45,16 +45,19 @@ api.interceptors.response.use(
 
 // Auth API
 export const authApi = {
-  register: (data: { name: string; email: string; password: string }) => 
+  otp: (data: { email: string }) =>
+    api.post('/auth/otp', data),
+
+  register: (data: { name: string; email: string; password: string }) =>
     api.post('/auth/register', data),
-  
-  login: (data: { email: string; password: string }) => 
+
+  login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
-  
-  getProfile: () => 
+
+  getProfile: () =>
     api.get('/auth/profile'),
-  
-  updateProfile: (data: any) => 
+
+  updateProfile: (data: any) =>
     api.put('/auth/profile', data),
 
   getTeams: () =>
@@ -62,138 +65,159 @@ export const authApi = {
 
   searchUsers: (query: string) =>
     api.get(`/auth/users/search?query=${encodeURIComponent(query)}`),
+
+  getAllUsers: (params?: Record<string, any>) => 
+    api.get('/auth/users', { params }),
+  
+
+  getUserById: (id: string) => api.get(`/auth/users/${id}`),
 };
 
 // Project API
 export const projectApi = {
-  getAll: (params?: any) => 
+  getAll: (params?: any) =>
     api.get('/projects', { params }),
-  
-  getById: (id: string) => 
+
+  getById: (id: string) =>
     api.get(`/projects/${id}`),
-  
-  create: (data: FormData) => 
+
+  create: (data: FormData) =>
     api.post('/projects', data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     }),
-  
-  update: (id: string, data: any) => 
+
+  update: (id: string, data: any) =>
     api.put(`/projects/${id}`, data),
-  
-  delete: (id: string) => 
+
+  delete: (id: string) =>
     api.delete(`/projects/${id}`),
-  
-  addTeamMember: (id: string, userId: string) => 
+
+  addTeamMember: (id: string, userId: string) =>
     api.post(`/projects/${id}/team`, { userId }),
-  
-  removeTeamMember: (id: string, userId: string) => 
+
+  removeTeamMember: (id: string, userId: string) =>
     api.delete(`/projects/${id}/team`, { data: { userId } }),
+
+  getUserProjects: (params?: any) => api.get('/projects/user/projects', { params }),
+
+  applyToProject: (projectId: string, data: { message?: string }) =>
+    api.post(`/projects/${projectId}/apply`, data),
+
+  getApplications: (projectId: string) =>
+    api.get(`/projects/${projectId}/applications`),
+
+  respondToApplication: (projectId: string, applicationId: string, data: { action: 'accept' | 'reject', message?: string }) =>
+    api.put(`/projects/${projectId}/applications/${applicationId}`, data),
 };
 
 // Team API
 export const teamApi = {
-  getAll: (params?: any) => 
+  getAll: (params?: any) =>
     api.get('/teams', { params }),
-  
-  getById: (id: string) => 
+
+  getById: (id: string) =>
     api.get(`/teams/${id}`),
-  
-  create: (data: any) => 
+
+  create: (data: any) =>
     api.post('/teams', data),
-  
-  update: (id: string, data: any) => 
+
+  update: (id: string, data: any) =>
     api.put(`/teams/${id}`, data),
-  
-  delete: (id: string) => 
+
+  delete: (id: string) =>
     api.delete(`/teams/${id}`),
-  
-  addMember: (id: string, userId: string) => 
+
+  addMember: (id: string, userId: string) =>
     api.post(`/teams/${id}/members`, { userId }),
-  
-  removeMember: (id: string, userId: string) => 
+
+  removeMember: (id: string, userId: string) =>
     api.delete(`/teams/${id}/members`, { data: { userId } }),
 };
 
 // Funding API
 export const fundingApi = {
-  getAll: (params?: any) => 
+  getAll: (params?: any) =>
     api.get('/funding', { params }),
-  
-  getById: (id: string) => 
+
+  getById: (id: string) =>
     api.get(`/funding/${id}`),
-  
-  create: (data: any) => 
+
+  create: (data: any) =>
     api.post('/funding', data),
-  
-  update: (id: string, data: any) => 
+
+  update: (id: string, data: any) =>
     api.put(`/funding/${id}`, data),
-  
-  delete: (id: string) => 
+
+  delete: (id: string) =>
     api.delete(`/funding/${id}`),
-  
-  back: (id: string, data: { amount: number; rewardTier?: string }) => 
+
+  back: (id: string, data: { amount: number; rewardTier?: string }) =>
     api.post(`/funding/${id}/back`, data),
 };
 
 // Message API
 export const messageApi = {
-  getConversations: () => 
+  getConversations: () =>
     api.get('/messages/conversations'),
-  
-  getMessages: (userId: string) => 
+
+  getMessages: (userId: string) =>
     api.get(`/messages/${userId}`),
-  
+
   sendMessage: (data: { senderId: string; recipientId: string; content: string }) =>
-  api.post('/messages', data),
+    api.post('/messages', data),
 
   sendTeamMessage: (teamId: string, content: string) =>
     api.post(`/messages/team/${teamId}`, { content }),
 
   sendProjectMessage: (projectId: string, content: string) =>
     api.post(`/messages/project/${projectId}`, { content }),
-  
-  markAsRead: (userId: string) => 
+
+  markAsRead: (userId: string) =>
     api.put(`/messages/${userId}/read`),
-  
+
   createConversation: (data: { userId: string }) =>
     api.post('/messages/conversations', data),
 };
 
 // Notification API
 export const notificationApi = {
-  getAll: () => 
-    api.get('/notifications'),
-  
-  create: (data: any) => 
-    api.post('/notifications', data),
-  
-  markAsRead: (id: string) => 
-    api.put(`/notifications/${id}/read`),
-  
-  markAllAsRead: () => 
-    api.put('/notifications/all/read'),
-  
-  delete: (id: string) => 
-    api.delete(`/notifications/${id}`),
+  create: (data: {
+    recipient: string;
+    type: 'project' | 'team' | 'funding' | 'message' | 'system';
+    title: string;
+    content: string;
+    relatedProject?: string;
+    relatedTeam?: string;
+    relatedFunding?: string;
+    relatedUser?: string;
+  }) => api.post('/notifications', data),
+
+  getAll: () => api.get('/notifications'),
+
+  markAsRead: (id: string) => api.put(`/notifications/${id}/read`),
+
+  markAllAsRead: () => api.put('/notifications/all/read'),
+
+  delete: (id: string) => api.delete(`/notifications/${id}`),
 };
 
 // Mentor API
 export const mentorApi = {
-  getAll: (params?: any) => 
+  getAll: (params?: any) =>
     api.get('/mentors', { params }),
-  
-  getById: (id: string) => 
+
+  getById: (id: string) =>
     api.get(`/mentors/${id}`),
-  
-  becomeMentor: (data: any) => 
+
+  becomeMentor: (data: any) =>
     api.post('/mentors', data),
-  
-  update: (id: string, data: any) => 
+
+  update: (id: string, data: any) =>
     api.put(`/mentors/${id}`, data),
-  
-  addReview: (id: string, data: any) => 
+
+  addReview: (id: string, data: any) =>
     api.post(`/mentors/${id}/reviews`, data),
 };
 

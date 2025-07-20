@@ -9,6 +9,7 @@ const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
 // Public routes
 router.get('/', team_1.getTeams);
+router.get('/my', auth_1.auth, team_1.getUserTeams);
 router.get('/:id', team_1.getTeam);
 // Protected routes
 router.post('/', auth_1.auth, team_1.createTeam);
@@ -16,4 +17,5 @@ router.put('/:id', auth_1.auth, team_1.updateTeam);
 router.delete('/:id', auth_1.auth, team_1.deleteTeam);
 router.post('/:id/members', auth_1.auth, team_1.addTeamMember);
 router.delete('/:id/members', auth_1.auth, team_1.removeTeamMember);
+// Public routes
 exports.default = router;

@@ -9,8 +9,8 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
-import Teams from "./pages/Teams";
-import TeamMemberDetail from "./pages/TeamMemberDetail";
+import Connect from "./pages/Connect";
+import ConnectMemberDetail from "./pages/TeamMemberDetail";
 import Mentors from "./pages/Mentors";
 import MentorDetail from "./pages/MentorDetail";
 import Funding from "./pages/Funding";
@@ -25,6 +25,8 @@ import Chat from "./pages/Chat";
 import Notifications from "./pages/Notifications";
 import CreateTeam from './pages/CreateTeams';
 import ScrollToTop from "@/components/ScrollToTop";
+import OtpVerification from "./pages/OtpVerification";
+import About from "./pages/About";
 
 const queryClient = new QueryClient();
 
@@ -43,11 +45,12 @@ const App = () => (
             <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
+            <Route path="/about" element={<About />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
-            <Route path="/teams" element={<Teams />} />
-            <Route path="/teams/:id" element={<TeamMemberDetail />} />
-            <Route path="/teams/create" element={
+            <Route path="/connect" element={<Connect />} />
+            <Route path="/connect/:id" element={<ConnectMemberDetail />} />
+            <Route path="/connect/create" element={
               <ProtectedRoute>
                 <CreateTeam />
               </ProtectedRoute>
@@ -58,6 +61,7 @@ const App = () => (
             <Route path="/funding/:id" element={<FundingDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/otpverification" element={<OtpVerification/>}/>
             
             {/* Protected Routes */}
             <Route path="/profile" element={

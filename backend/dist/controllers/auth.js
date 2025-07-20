@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateProfile = exports.getProfile = exports.login = exports.register = void 0;
+exports.searchUsers = exports.updateProfile = exports.getProfile = exports.login = exports.register = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = require("../models/User");
 const zod_1 = require("zod");
@@ -12,7 +12,7 @@ const registerSchema = zod_1.z.object({
     email: zod_1.z.string().email(),
     password: zod_1.z.string().min(6),
     name: zod_1.z.string().min(2),
-    role: zod_1.z.enum(['user', 'mentor', 'admin']).optional()
+    role: zod_1.z.enum(['user', 'mentor', 'admin', 'funder']).optional()
 });
 const loginSchema = zod_1.z.object({
     email: zod_1.z.string().email(),
@@ -174,3 +174,23 @@ const updateProfile = async (req, res) => {
     }
 };
 exports.updateProfile = updateProfile;
+const searchUsers = async (req, res) => {
+    try {
+        const query = req.query.query;
+        if (!query || query.length < 2) {
+            return res.status(400).json({ message: 'Query too short' });
+        }
+        const users = await User_1.User.find({
+            $or: [
+                { name: { $regex: query, $options: 'i' } },
+                { email: { $regex: query, $options: 'i' } }
+            ]
+        })
+            .select('name email avatar');
+        res.json({ users });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Error searching users' });
+    }
+};
+exports.searchUsers = searchUsers;

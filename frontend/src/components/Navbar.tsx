@@ -125,12 +125,12 @@ const Navbar = () => {
               Projects
             </Link>
             <Link 
-              to="/teams" 
+              to="/connect" 
               className={`text-content-primary hover:text-neon-blue transition-colors ${
-                location.pathname.includes('/teams') ? 'text-neon-blue' : ''
+                location.pathname.includes('/connect') ? 'text-neon-blue' : ''
               }`}
             >
-              Teams
+              Connect
             </Link>
             <Link 
               to="/mentors" 

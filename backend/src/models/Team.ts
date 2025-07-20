@@ -30,4 +30,19 @@ const TeamSchema: Schema = new Schema(
 // Index for searching teams
 TeamSchema.index({ name: 'text', description: 'text', skills: 'text' });
 
-export const Team = mongoose.model<ITeam>('Team', TeamSchema); 
+export const Team = mongoose.model<ITeam>('Team', TeamSchema);
+
+// Update TeamMemberCard props interface
+interface TeamMemberCardProps {
+  id: string;
+  name: string;
+  role: string;
+  skills: string[];
+  university: string;
+  avatar?: string;
+  bio?: string;
+  yearsOfExperience?: number;
+  projectCount?: number;
+  isActive?: boolean;
+  lastSeen?: Date;
+}

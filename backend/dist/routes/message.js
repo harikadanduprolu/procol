@@ -29,4 +29,6 @@ router.delete('/:messageId/reaction', message_1.removeReaction);
 // Read status
 router.put('/all/read', message_1.markAllAsRead);
 router.get('/unread/count', message_1.getUnreadCount);
+// New route
+router.post('/conversations', message_1.createConversation);
 exports.default = router;

@@ -65,8 +65,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         
         <div className="grid grid-cols-3 gap-2 mb-4">
           <div className="flex items-center gap-1 text-content-secondary text-xs">
-            <Users size={14} className="text-neon-blue" />
             <span>{teamSize} members</span>
+            <Users size={14} className="text-neon-blue" />
           </div>
           <div className="flex items-center gap-1 text-content-secondary text-xs">
             <Calendar size={14} className="text-neon-pink" />

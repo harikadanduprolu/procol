@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { projectApi } from '@/services/api';
+import { projectApi, notificationApi } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -43,6 +44,7 @@ interface Project {
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
@@ -50,10 +52,8 @@ const ProjectDetail = () => {
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-  const isCurrentUserAdmin = true; // Replace with real check
-
-  
-  
+  const isCurrentUserAdmin = project?.owner._id === user?._id;
+  const isCurrentUserMember = project?.team?.some(member => member._id === user?._id);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -70,12 +70,45 @@ const ProjectDetail = () => {
     fetchProject();
   }, [id]);
 
-  const handleApply = () => {
+  const handleApply = async () => {
+    if (!user || !project) {
+      toast.error("Please log in to apply");
+      return;
+    }
+
     setIsApplying(true);
-    setTimeout(() => {
-      setIsApplying(false);
+    
+    try {
+      // Create notification for project owner
+      await notificationApi.create({
+        recipient: project.owner._id,
+        type: 'project',
+        title: 'New Project Application',
+        content: `${user.name} has applied to join your project "${project.title}".`,
+        relatedProject: project._id,
+        relatedUser: user._id
+      });
+
+      // In a real app, you'd also create a project application record
+      // await projectApi.applyToProject(project._id, { message: applicationMessage });
+
       toast.success("Application submitted successfully!");
-    }, 1500);
+      
+      // Optionally, you can create a notification for the applicant too
+      await notificationApi.create({
+        recipient: user._id,
+        type: 'project',
+        title: 'Application Submitted',
+        content: `Your application to join "${project.title}" has been submitted and is awaiting review.`,
+        relatedProject: project._id
+      });
+
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      toast.error("Failed to submit application. Please try again.");
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const handleSettingChange = (key: string) => {
@@ -167,7 +200,7 @@ const ProjectDetail = () => {
                           <div className="flex-1">
                             <div className="font-semibold text-content-primary flex items-center gap-2">
                               {member.name}
-                              {member.isAdmin && <Badge className="text-xs">Admin</Badge>}
+                              {member._id === project.owner._id && <Badge className="text-xs bg-neon-purple/20 text-neon-purple">Owner</Badge>}
                             </div>
                             <p className="text-sm text-content-secondary">{member.role || 'Team Member'}</p>
                           </div>
@@ -193,9 +226,59 @@ const ProjectDetail = () => {
 
             <div className="space-y-6">
               <div className="bg-background/50 border border-white/10 rounded-xl p-6">
-                <h3 className="text-xl font-semibold mb-4">Join This Project</h3>
-                <Button className="w-full" onClick={handleApply} disabled={isApplying}>
-                  {isApplying ? "Applying..." : "Apply to Join"}
+                <h3 className="text-xl font-semibold mb-4">
+                  {isCurrentUserMember ? 'Project Status' : 'Join This Project'}
+                </h3>
+                
+                {isCurrentUserMember ? (
+                  <div className="text-center py-4">
+                    <div className="flex items-center justify-center gap-2 text-neon-green mb-2">
+                      <Users className="h-5 w-5" />
+                      <span>You're a team member</span>
+                    </div>
+                    <Link to={`/projects/${project._id}/dashboard`}>
+                      <Button className="w-full">
+                        Go to Project Dashboard
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-content-secondary text-sm mb-4">
+                      Apply to join this project and collaborate with the team.
+                    </p>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleApply} 
+                      disabled={isApplying || !user}
+                    >
+                      {isApplying ? "Submitting..." : "Apply to Join"}
+                    </Button>
+                    {!user && (
+                      <p className="text-content-secondary text-xs mt-2 text-center">
+                        Please <Link to="/login" className="text-neon-blue hover:underline">log in</Link> to apply
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Project Owner Info */}
+              <div className="bg-background/50 border border-white/10 rounded-xl p-6">
+                <h3 className="text-xl font-semibold mb-4">Project Owner</h3>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={project.owner.avatar} alt={project.owner.name} />
+                    <AvatarFallback>{project.owner.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-semibold text-content-primary">{project.owner.name}</div>
+                    <div className="text-sm text-content-secondary">Project Lead</div>
+                  </div>
+                </div>
+                <Button variant="outline" className="w-full mt-4">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Send Message
                 </Button>
               </div>
             </div>
