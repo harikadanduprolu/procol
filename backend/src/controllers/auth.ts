@@ -36,13 +36,6 @@ const updateProfileSchema = z.object({
   }).optional()
 });
 
-// Store OTPs temporarily (in production, use Redis or database)
-const otpStore = new Map<string, { 
-  otp: string, 
-  expiresAt: Date, 
-  verified: boolean 
-}>();
-
 // function to send mail with your HTML template
 export async function sendOtpEmail(email: string, otp: string): Promise<void> {
   const transporter = nodemailer.createTransport({
@@ -175,123 +168,7 @@ export async function sendOtpEmail(email: string, otp: string): Promise<void> {
   }
 }
 
-// Send OTP for email verification
-export const sendOTP = async (req: Request, res: Response) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
-    }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Generate OTP and expiration time
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    // Store OTP
-    otpStore.set(email, { otp, expiresAt, verified: false });
-
-    // Send email using your HTML template
-    await sendOtpEmail(email, otp);
-
-    res.status(200).json({ 
-      message: 'Verification code sent to your email',
-      email,
-      // Only include OTP in development for testing
-      ...(process.env.NODE_ENV === 'development' && { otp })
-    });
-
-  } catch (error) {
-    console.error('Error sending OTP:', error);
-    res.status(500).json({ message: 'Error sending verification code' });
-  }
-};
-
-// Verify OTP
-export const verifyOTP = async (req: Request, res: Response) => {
-  try {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-      return res.status(400).json({ message: 'Email and OTP are required' });
-    }
-
-    // Check if OTP exists
-    const storedOTPData = otpStore.get(email);
-    if (!storedOTPData) {
-      return res.status(400).json({ message: 'OTP not found or expired' });
-    }
-
-    // Check if OTP is expired
-    if (new Date() > storedOTPData.expiresAt) {
-      otpStore.delete(email);
-      return res.status(400).json({ message: 'OTP has expired' });
-    }
-
-    // Check if OTP matches
-    if (storedOTPData.otp !== otp) {
-      return res.status(400).json({ message: 'Invalid OTP' });
-    }
-
-    // Mark as verified
-    storedOTPData.verified = true;
-    otpStore.set(email, storedOTPData);
-
-    res.status(200).json({ 
-      message: 'Email verified successfully',
-      verified: true
-    });
-
-  } catch (error) {
-    console.error('Error verifying OTP:', error);
-    res.status(500).json({ message: 'Error verifying OTP' });
-  }
-};
-
-// Resend OTP
-export const resendOTP = async (req: Request, res: Response) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
-    }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Generate new OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    // Update stored OTP
-    otpStore.set(email, { otp, expiresAt, verified: false });
-
-    // Send email using your HTML template
-    await sendOtpEmail(email, otp);
-
-    res.status(200).json({ 
-      message: 'New verification code sent to your email',
-      // Only include OTP in development for testing
-      ...(process.env.NODE_ENV === 'development' && { otp })
-    });
-
-  } catch (error) {
-    console.error('Error resending OTP:', error);
-    res.status(500).json({ message: 'Error resending verification code' });
-  }
-};
-
-// calls otp sending function (keeping your existing function)
+// calls otp sending function 
 export const otp = async (req: Request, res: Response) => {
   try {
     const { email } = req.body
@@ -317,14 +194,6 @@ export const register = async (req: Request, res: Response) => {
     const { email, password, name, role, otp } = req.body;
     const validatedData = registerSchema.parse({ email, password, name, role });
 
-    // If OTP is provided, verify it
-    if (otp) {
-      const storedOTPData = otpStore.get(email);
-      if (!storedOTPData || !storedOTPData.verified || storedOTPData.otp !== otp) {
-        return res.status(400).json({ message: 'Invalid or unverified OTP' });
-      }
-    }
-
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -341,11 +210,6 @@ export const register = async (req: Request, res: Response) => {
     });
 
     await user.save();
-
-    // Clean up OTP if used
-    if (otp) {
-      otpStore.delete(email);
-    }
 
     // Generate token
     const token = jwt.sign(
@@ -627,16 +491,3 @@ export const getUserById = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching user' });
   }
 };
-
-// Clean up expired OTPs (run this periodically)
-export const cleanupExpiredOTPs = () => {
-  const now = new Date();
-  for (const [email, data] of otpStore.entries()) {
-    if (now > data.expiresAt) {
-      otpStore.delete(email);
-    }
-  }
-};
-
-// Set up cleanup interval (run every 5 minutes)
-setInterval(cleanupExpiredOTPs, 5 * 60 * 1000);

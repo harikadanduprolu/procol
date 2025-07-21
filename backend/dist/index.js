@@ -29,8 +29,10 @@ const allowedOrigins = [
     process.env.SOCKET_CORS_ORIGIN,
     'http://localhost:5173',
     'http://localhost:3000',
-    'http://localhost:8080'
+    'http://localhost:8080',
+    'https://procol.onrender.com'
 ].filter(Boolean);
+console.log('Allowed origins:', allowedOrigins);
 const io = new socket_io_1.Server(httpServer, {
     cors: {
         origin: allowedOrigins,
@@ -41,7 +43,16 @@ const io = new socket_io_1.Server(httpServer, {
 exports.io = io;
 // Middleware
 app.use((0, cors_1.default)({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, etc.)
+        if (!origin) {
+            return callback(null, true);
+        }
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -89,11 +100,12 @@ io.on('connection', (socket) => {
 // Routes
 app.use('/api/auth', auth_1.default);
 app.use('/api/projects', project_1.default);
-app.use('/api/teams', team_1.default);
+//app.use('/api/connect', authRoutes);
 app.use('/api/funding', funding_1.default);
 app.use('/api/messages', message_1.default);
 app.use('/api/notifications', notification_1.default);
 app.use('/api/mentors', mentor_1.default); // <-- Add this line
+app.use('/api/teams', team_1.default);
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);

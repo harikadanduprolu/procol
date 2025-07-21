@@ -39,34 +39,89 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
-const UserSchema = new mongoose_1.Schema({
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    role: { type: String, enum: ['user', 'mentor', 'admin'], default: 'user' },
-    avatar: { type: String },
-    bio: { type: String },
-    skills: [{ type: String }],
-    institution: { type: String },
-    location: { type: String },
+const userSchema = new mongoose_1.Schema({
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        lowercase: true
+    },
+    password: {
+        type: String,
+        required: true,
+        minlength: 6
+    },
+    name: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    role: {
+        type: String,
+        enum: ['user', 'mentor', 'admin', 'funder'],
+        default: 'user'
+    },
+    bio: {
+        type: String,
+        trim: true
+    },
+    skills: [{
+            type: String,
+            trim: true
+        }],
+    institution: {
+        type: String,
+        trim: true
+    },
+    university: {
+        type: String,
+        trim: true
+    },
+    location: {
+        type: String,
+        trim: true
+    },
+    yearsOfExperience: {
+        type: Number,
+        default: 0
+    },
     socials: {
         github: { type: String },
         linkedin: { type: String },
         twitter: { type: String },
         website: { type: String }
     },
-    projects: [{ type: mongoose_1.Schema.Types.ObjectId, ref: 'Project' }],
-    teams: [{ type: mongoose_1.Schema.Types.ObjectId, ref: 'Team' }],
-    mentoring: [{ type: mongoose_1.Schema.Types.ObjectId, ref: 'Mentor' }],
-    isEmailVerified: { type: Boolean, default: false },
-    emailVerificationToken: { type: String },
-    emailVerificationExpires: { type: Date }
-}, { timestamps: true });
+    avatar: {
+        type: String
+    },
+    isEmailVerified: {
+        type: Boolean,
+        default: false
+    },
+    lastSeen: {
+        type: Date,
+        default: Date.now
+    },
+    projects: [{
+            type: mongoose_1.default.Schema.Types.ObjectId,
+            ref: 'Project'
+        }],
+    teams: [{
+            type: mongoose_1.default.Schema.Types.ObjectId,
+            ref: 'Team'
+        }],
+    mentoring: [{
+            type: mongoose_1.default.Schema.Types.ObjectId,
+            ref: 'Mentoring'
+        }]
+}, {
+    timestamps: true
+});
 // Hash password before saving
-UserSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
+userSchema.pre('save', async function (next) {
+    if (!this.isModified('password'))
         return next();
-    }
     try {
         const salt = await bcryptjs_1.default.genSalt(10);
         this.password = await bcryptjs_1.default.hash(this.password, salt);
@@ -77,7 +132,7 @@ UserSchema.pre('save', async function (next) {
     }
 });
 // Compare password method
-UserSchema.methods.comparePassword = async function (candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
     return bcryptjs_1.default.compare(candidatePassword, this.password);
 };
-exports.User = mongoose_1.default.model('User', UserSchema);
+exports.User = mongoose_1.default.model('User', userSchema);

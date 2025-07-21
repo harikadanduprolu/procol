@@ -19,4 +19,5 @@ router.put('/:id', auth_1.auth, upload.single('image'), project_1.updateProject)
 router.delete('/:id', auth_1.auth, project_1.deleteProject);
 router.post('/:id/team', auth_1.auth, project_1.addTeamMember);
 router.delete('/:id/team', auth_1.auth, project_1.removeTeamMember);
+router.get('/user/projects', auth_1.auth, project_1.getUserProjects); // GET /api/projects/user/projects
 exports.default = router;

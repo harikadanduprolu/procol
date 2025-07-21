@@ -7,18 +7,14 @@ import {
   searchUsers,
   getAllUsers,
   getUserById,
-  sendOTP,
-  verifyOTP,
-  resendOTP
+  otp
 } from '../controllers/auth';
 import { auth } from '../middleware/auth';
 
 const router = Router();
 
 // Authentication routes
-router.post('/send-otp', sendOTP);
-router.post('/verify-otp', verifyOTP);
-router.post('/resend-otp', resendOTP);
+router.post('/otp', otp);
 router.post('/register', register);
 router.post('/login', login);
 
