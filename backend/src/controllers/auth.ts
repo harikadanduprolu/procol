@@ -384,6 +384,8 @@ export const searchUsers = async (req: Request, res: Response) => {
 // Get all users (for connect page)
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
+    console.log('🔍 getAllUsers called with query:', req.query);
+    
     const {
       search,
       skills,
@@ -398,11 +400,11 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build query - only show verified users
+    // Build query - REMOVE the isEmailVerified filter for now
     const query: any = {};
-    if (User.schema.paths.isEmailVerified) {
-      query.isEmailVerified = true;
-    }
+    
+    // Exclude mentors by default (optional)
+    // query.role = { $ne: 'mentor' };
 
     // Search filter
     if (search) {
@@ -429,6 +431,8 @@ export const getAllUsers = async (req: Request, res: Response) => {
       query.university = university;
     }
 
+    console.log('📝 Database query:', query);
+
     // Sort options
     let sortOption: any = {};
     switch (sort) {
@@ -442,29 +446,41 @@ export const getAllUsers = async (req: Request, res: Response) => {
         sortOption = { name: 1 };
         break;
       default:
-        sortOption = { createdAt: -1 };
+        sortOption = { lastSeen: -1, createdAt: -1 }; // Recently active first
     }
 
     const users = await User.find(query)
-      .select('-password')
+      .select('-password') // Don't include passwords
       .sort(sortOption)
       .skip(skip)
       .limit(limitNum)
-      .populate('projects', 'title');
+      .populate('projects', 'title')
+      .lean(); // Convert to plain objects
+
+    console.log('👥 Found users:', users.length);
+    console.log('👥 Sample user:', users[0]); // Log first user for debugging
 
     const total = await User.countDocuments(query);
 
+    console.log('📤 Sending response with', users.length, 'users');
+
     res.json({
-      users,
+      success: true,
+      users: users,
       pagination: {
         current: pageNum,
         pages: Math.ceil(total / limitNum),
         total
-      }
+      },
+      count: users.length
     });
+
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Error fetching users' });
+    console.error('❌ Error in getAllUsers:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch users',
+      error: typeof error === 'object' && error !== null && 'message' in error ? (error as { message: string }).message : String(error)
+    });
   }
 };
 
