@@ -27,6 +27,8 @@ import CreateTeam from './pages/CreateTeams';
 import ScrollToTop from "@/components/ScrollToTop";
 import OtpVerification from "./pages/OtpVerification";
 import About from "./pages/About";
+import TeamSettings from "./pages/TeamSettings";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +47,7 @@ const App = () => (
             <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
+            {/*<Route path="/dashboard" element={<Dashboard />} />*/}
             <Route path="/about" element={<About />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
@@ -59,6 +62,7 @@ const App = () => (
             <Route path="/mentors/:id" element={<MentorDetail />} />
             <Route path="/funding" element={<Funding />} />
             <Route path="/funding/:id" element={<FundingDetail />} />
+            <Route path="/teams/:id" element={<TeamSettings />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/otpverification" element={<OtpVerification/>}/>
@@ -89,6 +93,11 @@ const App = () => (
                 <Notifications />
               </ProtectedRoute>
             } />
+            <Route path="/teams/create" element={
+              <ProtectedRoute>
+                <CreateTeam />
+              </ProtectedRoute>
+            }/>
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />

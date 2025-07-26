@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Users, Folder, CheckCheck, Check, AlertCircle, User } from 'lucide-react';
+import { Send, Users, Folder, CheckCheck, Check, AlertCircle, User, Search, X } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Spinner } from "@/components/ui/spinner";
 import { useSocket } from '@/contexts/SocketContext';
@@ -53,18 +53,37 @@ const Chat = () => {
   const [searchText, setSearchText] = useState('');
   const [teamChats, setTeamChats] = useState<ChatConversation[]>([]);
   const [projectChats, setProjectChats] = useState<ChatConversation[]>([]);
+  const [directChats, setDirectChats] = useState<ChatConversation[]>([]);
   const [activeChat, setActiveChat] = useState<ChatConversation | null>(null);
   const [chatType, setChatType] = useState('teams');
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [userResults, setUserResults] = useState<ChatUser[]>([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
+  const [filteredTeams, setFilteredTeams] = useState<ChatConversation[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<ChatConversation[]>([]);
+  const [filteredDirects, setFilteredDirects] = useState<ChatConversation[]>([]);
 
   const formatTimestamp = (date: Date): string => {
     if (isToday(date)) return format(date, 'h:mm a');
     if (isYesterday(date)) return 'Yesterday, ' + format(date, 'h:mm a');
     return format(date, 'MMM d, h:mm a');
   };
+
+  // Filter chats based on search text
+  useEffect(() => {
+    const filterChats = (chats: ChatConversation[]) => {
+      if (!searchText.trim()) return chats;
+      return chats.filter(chat => 
+        chat.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        (chat.lastMessage && chat.lastMessage.toLowerCase().includes(searchText.toLowerCase()))
+      );
+    };
+
+    setFilteredTeams(filterChats(teamChats));
+    setFilteredProjects(filterChats(projectChats));
+    setFilteredDirects(filterChats(directChats));
+  }, [searchText, teamChats, projectChats, directChats]);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -75,6 +94,7 @@ const Chat = () => {
         const conversations = response.data;
         const teams: ChatConversation[] = [];
         const projects: ChatConversation[] = [];
+        const directs: ChatConversation[] = [];
 
         conversations.forEach((convo: any) => {
           const formatted: ChatConversation = {
@@ -89,11 +109,20 @@ const Chat = () => {
             messages: [],
             isTyping: false
           };
-          convo.type === 'team' ? teams.push(formatted) : convo.type === 'project' && projects.push(formatted);
+
+          if (convo.type === 'team') {
+            teams.push(formatted);
+          } else if (convo.type === 'project') {
+            projects.push(formatted);
+          } else if (convo.type === 'direct') {
+            directs.push(formatted);
+          }
         });
 
         setTeamChats(teams);
         setProjectChats(projects);
+        setDirectChats(directs);
+
         if (teams.length) {
           setActiveChat(teams[0]);
           loadMessages(teams[0].id);
@@ -101,6 +130,10 @@ const Chat = () => {
           setActiveChat(projects[0]);
           setChatType('projects');
           loadMessages(projects[0].id);
+        } else if (directs.length) {
+          setActiveChat(directs[0]);
+          setChatType('users');
+          loadMessages(directs[0].id);
         }
       } catch (err) {
         console.error('Error fetching conversations:', err);
@@ -177,28 +210,39 @@ const Chat = () => {
     }
   };
 
-  const handleUserSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchText(e.target.value);
-    if (e.target.value.length > 1) {
+  const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchText(value);
+
+    // Only search for users when in 'users' tab and search text is long enough
+    if (chatType === 'users' && value.length > 1) {
       setSearchingUsers(true);
       try {
-        const res = await authApi.searchUsers(e.target.value);
+        const res = await authApi.searchUsers(value);
         setUserResults(res.data.users || []);
       } catch (err) {
+        console.error('User search error:', err);
         setUserResults([]);
       } finally {
         setSearchingUsers(false);
       }
     } else {
       setUserResults([]);
+      setSearchingUsers(false);
     }
+  };
+
+  const clearSearch = () => {
+    setSearchText('');
+    setUserResults([]);
   };
 
   const startDirectChat = async (userId: string) => {
     try {
       const res = await messageApi.createConversation({ userId });
       const convo = res.data.conversation;
-      setActiveChat({
+      
+      const newDirectChat: ChatConversation = {
         id: convo._id,
         name: convo.name,
         avatar: convo.avatar,
@@ -209,11 +253,22 @@ const Chat = () => {
         participants: convo.participants,
         messages: [],
         isTyping: false
+      };
+
+      setDirectChats(prev => {
+        const exists = prev.find(chat => chat.id === convo._id);
+        if (!exists) {
+          return [...prev, newDirectChat];
+        }
+        return prev;
       });
+
+      setActiveChat(newDirectChat);
       loadMessages(convo._id);
       setUserResults([]);
       setSearchText('');
     } catch (err) {
+      console.error('Error starting direct chat:', err);
       toast({ title: 'Error', description: 'Could not start chat', variant: 'destructive' });
     }
   };
@@ -225,47 +280,99 @@ const Chat = () => {
     }
   };
 
+  const handleTabChange = (value: string) => {
+    setChatType(value);
+    setSearchText('');
+    setUserResults([]);
+    setActiveChat(null);
+
+    setTimeout(() => {
+      if (value === 'teams' && filteredTeams.length > 0) {
+        selectChat(filteredTeams[0]);
+      } else if (value === 'projects' && filteredProjects.length > 0) {
+        selectChat(filteredProjects[0]);
+      } else if (value === 'users' && filteredDirects.length > 0) {
+        selectChat(filteredDirects[0]);
+      }
+    }, 100);
+  };
+
+  const getSearchPlaceholder = () => {
+    switch (chatType) {
+      case 'teams':
+        return 'Search your teams...';
+      case 'projects':
+        return 'Search your projects...';
+      case 'users':
+        return 'Search users to chat...';
+      default:
+        return 'Search...';
+    }
+  };
+
   const renderChatList = (chats: ChatConversation[], type: string) => (
     <div className="space-y-2">
-      {chats.map(chat => (
-        <div 
-          key={chat.id}
-          className={`p-3 cursor-pointer hover:bg-zinc-800/50 rounded-lg transition-colors ${
-            activeChat?.id === chat.id ? 'bg-zinc-800' : ''
-          }`}
-          onClick={() => selectChat(chat)}
-        >
-          <div className="flex items-start gap-3">
-            <Avatar>
-              <AvatarFallback className={
-                type === 'teams' 
-                  ? 'bg-neon-purple/20 text-neon-purple' 
-                  : 'bg-neon-blue/20 text-neon-blue'
-              }>
-                {chat.name.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-center">
-                <h3 className="font-medium truncate">{chat.name}</h3>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {chat.timestamp ? formatTimestamp(chat.timestamp) : ''}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground truncate">
-                {chat.lastMessage || 'No messages yet'}
-              </p>
+      {chats.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          {searchText ? (
+            <div>
+              <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No {type} found matching "{searchText}"</p>
             </div>
-            {chat.unread > 0 && (
-              <span className={`rounded-full text-white text-xs px-2 py-1 min-w-[1.5rem] text-center ${
-                type === 'teams' ? 'bg-neon-purple' : 'bg-neon-blue'
-              }`}>
-                {chat.unread}
-              </span>
-            )}
-          </div>
+          ) : (
+            <div>
+              <p>No {type} found</p>
+              {type === 'teams' && <p className="text-xs mt-1">Join a team to start chatting</p>}
+              {type === 'projects' && <p className="text-xs mt-1">Join a project to start chatting</p>}
+              {type === 'direct chats' && <p className="text-xs mt-1">Search for users to start direct chats</p>}
+            </div>
+          )}
         </div>
-      ))}
+      ) : (
+        chats.map(chat => (
+          <div 
+            key={chat.id}
+            className={`p-3 cursor-pointer hover:bg-zinc-800/50 rounded-lg transition-colors ${
+              activeChat?.id === chat.id ? 'bg-zinc-800 border border-neon-purple/30' : ''
+            }`}
+            onClick={() => selectChat(chat)}
+          >
+            <div className="flex items-start gap-3">
+              <Avatar>
+                <AvatarImage src={chat.avatar} alt={chat.name} />
+                <AvatarFallback className={
+                  type === 'teams' 
+                    ? 'bg-neon-purple/20 text-neon-purple' 
+                    : type === 'projects'
+                    ? 'bg-neon-blue/20 text-neon-blue'
+                    : 'bg-neon-green/20 text-neon-green'
+                }>
+                  {chat.name.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-medium truncate">{chat.name}</h3>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {chat.timestamp ? formatTimestamp(chat.timestamp) : ''}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground truncate">
+                  {chat.lastMessage || 'No messages yet'}
+                </p>
+              </div>
+              {chat.unread > 0 && (
+                <span className={`rounded-full text-white text-xs px-2 py-1 min-w-[1.5rem] text-center ${
+                  type === 'teams' ? 'bg-neon-purple' : 
+                  type === 'projects' ? 'bg-neon-blue' : 'bg-neon-green'
+                }`}>
+                  {chat.unread}
+                </span>
+              )}
+            </div>
+          </div>
+        ))
+      )};
     </div>
   );
 
@@ -283,92 +390,112 @@ const Chat = () => {
           </div>
         )}
 
-        {/* Top-level Tab Navigation */}
-        <Tabs defaultValue="teams" onValueChange={setChatType} className="w-full">
-          <TabsList className="mb-6 bg-zinc-800 p-1 rounded-lg max-w-md">
-            <TabsTrigger value="users" className="flex-1 data-[state=active]:bg-neon-green/20">
-              <User className="mr-2 h-4 w-4" /> All
-            </TabsTrigger>
-            <TabsTrigger value="teams" className="flex-1 data-[state=active]:bg-neon-purple/20">
-              <Users className="mr-2 h-4 w-4" /> Teams
-            </TabsTrigger>
-            <TabsTrigger value="projects" className="flex-1 data-[state=active]:bg-neon-blue/20">
-              <Folder className="mr-2 h-4 w-4" /> Projects
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex-1 data-[state=active]:bg-neon-green/20">
-              <User className="mr-2 h-4 w-4" /> Users
-            </TabsTrigger>
-          </TabsList>
+        {/* Navigation and Search Container */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          {/* Tab Navigation */}
+          <Tabs value={chatType} onValueChange={handleTabChange} className="w-full lg:w-auto">
+            <TabsList className="bg-zinc-800 p-1 rounded-lg w-full lg:w-auto">
+              <TabsTrigger value="users" className="flex-1 lg:flex-none data-[state=active]:bg-neon-green/20">
+                <User className="mr-2 h-4 w-4" /> Users
+              </TabsTrigger>
+              <TabsTrigger value="teams" className="flex-1 lg:flex-none data-[state=active]:bg-neon-purple/20">
+                <Users className="mr-2 h-4 w-4" /> Teams
+              </TabsTrigger>
+              <TabsTrigger value="projects" className="flex-1 lg:flex-none data-[state=active]:bg-neon-blue/20">
+                <Folder className="mr-2 h-4 w-4" /> Projects
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          {/* Content Area - 2 Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-22rem)]">
-            {/* Left Container: Search Bar + Chat List */}
+          {/* Search Bar */}
+          <div className="relative w-full lg:max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder={getSearchPlaceholder()}
+              value={searchText}
+              onChange={handleSearch}
+              className="pl-10 pr-10 bg-zinc-800/50 border-zinc-700 focus:border-neon-purple/50"
+            />
+            {searchText && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                onClick={clearSearch}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* User Search Results - Shown outside chat list when searching users */}
+        {chatType === 'users' && searchingUsers && (
+          <div className="mb-4 text-sm text-muted-foreground flex items-center gap-2">
+            <Spinner className="h-4 w-4" />
+            Searching users...
+          </div>
+        )}
+        
+        {chatType === 'users' && userResults.length > 0 && (
+          <Card className="mb-6 bg-zinc-800/50 border-zinc-700">
+            <CardContent className="p-4">
+              <h3 className="text-sm font-semibold mb-3 text-neon-green flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Search Results
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {userResults.map(user => (
+                  <div
+                    key={user._id}
+                    className="p-3 hover:bg-zinc-700/50 cursor-pointer rounded-lg flex items-center gap-3 transition-colors border border-transparent hover:border-neon-green/30"
+                    onClick={() => startDirectChat(user._id)}
+                  >
+                    <Avatar className="h-8 w-8">
+                      {user.avatar ? (
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                      ) : (
+                        <AvatarFallback className="bg-neon-green/20 text-neon-green text-xs">
+                          {user.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium truncate block">{user.name}</span>
+                      {user.online && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <div className="w-2 h-2 bg-neon-green rounded-full"></div>
+                          <span className="text-xs text-neon-green">Online</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Content Area - 2 Column Layout */}
+        <Tabs value={chatType} className="w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-24rem)]">
+            {/* Left Container: Chat List */}
             <div className="lg:col-span-1">
               <Card className="h-full bg-zinc-900/50 border-zinc-800 flex flex-col">
                 <CardContent className="p-4 flex flex-col h-full">
-                  {/* Search Bar */}
-                  <div className="mb-4">
-                    <Input
-                      type="text"
-                      placeholder="Search users or chats..."
-                      value={searchText}
-                      onChange={handleUserSearch}
-                      className="w-full"
-                    />
-                    
-                    {searchingUsers && (
-                      <div className="mt-2 text-sm text-muted-foreground">Searching users...</div>
-                    )}
-                    
-                    {userResults.length > 0 && (
-                      <div className="mt-2 bg-zinc-800 rounded-lg p-2 max-h-40 overflow-y-auto">
-                        <h3 className="text-sm font-semibold mb-2">Users</h3>
-                        {userResults.map(user => (
-                          <div
-                            key={user._id}
-                            className="p-2 hover:bg-zinc-700 cursor-pointer rounded flex items-center gap-2"
-                            onClick={() => startDirectChat(user._id)}
-                          >
-                            <Avatar className="h-6 w-6">
-                              {user.avatar ? (
-                                <AvatarImage src={user.avatar} alt={user.name} />
-                              ) : (
-                                <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                              )}
-                            </Avatar>
-                            <span className="text-sm">{user.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
                   {/* Chat Lists */}
                   <div className="flex-1 overflow-hidden">
                     <TabsContent value="teams" className="mt-0 h-full overflow-y-auto">
-                      {teamChats.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          No team chats found
-                        </div>
-                      ) : (
-                        renderChatList(teamChats, 'teams')
-                      )}
+                      {renderChatList(filteredTeams, 'teams')}
                     </TabsContent>
 
                     <TabsContent value="projects" className="mt-0 h-full overflow-y-auto">
-                      {projectChats.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          No project chats found
-                        </div>
-                      ) : (
-                        renderChatList(projectChats, 'projects')
-                      )}
+                      {renderChatList(filteredProjects, 'projects')}
                     </TabsContent>
 
                     <TabsContent value="users" className="mt-0 h-full overflow-y-auto">
-                      <div className="text-center py-8 text-muted-foreground">
-                        Search for users above to start direct chats
-                      </div>
+                      {renderChatList(filteredDirects, 'direct chats')}
                     </TabsContent>
                   </div>
                 </CardContent>
@@ -384,10 +511,13 @@ const Chat = () => {
                       {/* Chat Header */}
                       <div className="p-4 border-b border-zinc-800 flex items-center gap-3">
                         <Avatar>
+                          <AvatarImage src={activeChat.avatar} alt={activeChat.name} />
                           <AvatarFallback className={
                             activeChat.type === 'team' 
                               ? 'bg-neon-purple/20 text-neon-purple' 
-                              : 'bg-neon-blue/20 text-neon-blue'
+                              : activeChat.type === 'project'
+                              ? 'bg-neon-blue/20 text-neon-blue'
+                              : 'bg-neon-green/20 text-neon-green'
                           }>
                             {activeChat.name.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
@@ -475,7 +605,12 @@ const Chat = () => {
                     </>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Select a chat to start messaging</p>
+                      <div className="text-center">
+                        <p className="text-muted-foreground mb-2">Select a chat to start messaging</p>
+                        {chatType === 'users' && (
+                          <p className="text-xs text-muted-foreground">Search for users above to start new conversations</p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
