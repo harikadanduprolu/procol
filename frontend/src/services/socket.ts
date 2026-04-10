@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
-const PRODUCTION_SOCKET_FALLBACK = 'https://procol.onrender.com';
+const PRODUCTION_SOCKET_FALLBACK = 'https://procol-backend.onrender.com';
 
 // Types for messages and notifications
 export interface Message {

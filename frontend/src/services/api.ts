@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const PRODUCTION_API_FALLBACK = 'https://procol.onrender.com/api';
+const PRODUCTION_API_FALLBACK = 'https://procol-backend.onrender.com/api';
 
 const resolveApiBaseUrl = () => {
   const configuredUrl = import.meta.env.VITE_API_URL?.trim();
