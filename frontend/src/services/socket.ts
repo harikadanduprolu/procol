@@ -47,8 +47,16 @@ class SocketService {
 
   // Initialize the socket connection
   initialize() {
-    // Get the base URL from environment variables, or use default
-    const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL?.trim();
+    const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+
+    const SOCKET_URL = configuredSocketUrl
+      ? configuredSocketUrl.replace(/\/$/, '')
+      : configuredApiUrl
+        ? configuredApiUrl.replace(/\/api\/?$/, '')
+        : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+          ? window.location.origin
+          : 'http://localhost:5000';
 
     // Get the auth token from localStorage
     const token = localStorage.getItem('token');
