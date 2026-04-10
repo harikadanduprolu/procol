@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Menu, X, Users, Search, Lightbulb, MessageSquare, DollarSign, 
-  User, Plus, LogIn, Bell, MessageCircle 
+  User, Plus, LogIn, Bell, MessageCircle, Sparkles
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from "@/components/ui/use-toast";
@@ -148,6 +148,16 @@ const Navbar = () => {
             >
               Funding
             </Link>
+            {isAuthenticated && (
+              <Link 
+                to="/ai-summary" 
+                className={`text-content-primary hover:text-neon-blue transition-colors ${
+                  location.pathname.includes('/ai-summary') ? 'text-neon-blue' : ''
+                }`}
+              >
+                AI Summary
+              </Link>
+            )}
           </div>
 
           <div className="hidden md:flex items-center gap-4">
@@ -157,6 +167,12 @@ const Navbar = () => {
                   <Button variant="outline" className="border-neon-purple text-neon-purple hover:bg-neon-purple/10 flex items-center gap-2">
                     <Plus size={16} />
                     New Project
+                  </Button>
+                </Link>
+                <Link to="/ai-summary">
+                  <Button variant="outline" className="border-neon-blue text-neon-blue hover:bg-neon-blue/10 flex items-center gap-2">
+                    <Sparkles size={16} />
+                    AI Summary
                   </Button>
                 </Link>
                 <Link to="/chat" className="relative">
@@ -262,6 +278,16 @@ const Navbar = () => {
               <DollarSign size={18} />
               <span>Funding</span>
             </Link>
+            {isAuthenticated && (
+              <Link 
+                to="/ai-summary" 
+                className="flex items-center gap-3 text-content-primary hover:text-neon-purple transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Sparkles size={18} />
+                <span>AI Summary</span>
+              </Link>
+            )}
             
             {isAuthenticated ? (
               <>

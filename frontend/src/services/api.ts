@@ -222,6 +222,12 @@ export const notificationApi = {
   delete: (id: string) => api.delete(`/notifications/${id}`),
 };
 
+// AI API
+export const aiApi = {
+  summarizeTasks: (tasks: string[]) =>
+    api.post('/ai/summarize', { tasks }),
+};
+
 // Mentor API
 export const mentorApi = {
   getAll: (params?: any) =>

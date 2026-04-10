@@ -27,6 +27,7 @@ import CreateTeam from './pages/CreateTeams';
 import ScrollToTop from "@/components/ScrollToTop";
 import OtpVerification from "./pages/OtpVerification";
 import About from "./pages/About";
+import AISummary from "./pages/AISummary";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,11 @@ const App = () => (
             <Route path="/notifications" element={
               <ProtectedRoute>
                 <Notifications />
+              </ProtectedRoute>
+            } />
+            <Route path="/ai-summary" element={
+              <ProtectedRoute>
+                <AISummary />
               </ProtectedRoute>
             } />
             
