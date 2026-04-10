@@ -5,9 +5,7 @@ const auth_1 = require("../controllers/auth");
 const auth_2 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // Authentication routes
-router.post('/send-otp', auth_1.sendOTP);
-router.post('/verify-otp', auth_1.verifyOTP);
-router.post('/resend-otp', auth_1.resendOTP);
+router.post('/otp', auth_1.otp);
 router.post('/register', auth_1.register);
 router.post('/login', auth_1.login);
 // Protected routes

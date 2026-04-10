@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupExpiredOTPs = exports.getUserById = exports.getAllUsers = exports.searchUsers = exports.updateProfile = exports.getProfile = exports.login = exports.register = exports.otp = exports.resendOTP = exports.verifyOTP = exports.sendOTP = void 0;
+exports.getUserById = exports.getAllUsers = exports.searchUsers = exports.updateProfile = exports.getProfile = exports.login = exports.register = exports.otp = void 0;
 exports.sendOtpEmail = sendOtpEmail;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = require("../models/User");
@@ -37,8 +37,6 @@ const updateProfileSchema = zod_1.z.object({
         website: zod_1.z.string().optional()
     }).optional()
 });
-// Store OTPs temporarily (in production, use Redis or database)
-const otpStore = new Map();
 // function to send mail with your HTML template
 async function sendOtpEmail(email, otp) {
     const transporter = nodemailer_1.default.createTransport({
@@ -170,105 +168,7 @@ async function sendOtpEmail(email, otp) {
         throw error;
     }
 }
-// Send OTP for email verification
-const sendOTP = async (req, res) => {
-    try {
-        const { email } = req.body;
-        if (!email) {
-            return res.status(400).json({ message: 'Email is required' });
-        }
-        // Check if user already exists
-        const existingUser = await User_1.User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User already exists' });
-        }
-        // Generate OTP and expiration time
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-        // Store OTP
-        otpStore.set(email, { otp, expiresAt, verified: false });
-        // Send email using your HTML template
-        await sendOtpEmail(email, otp);
-        res.status(200).json({
-            message: 'Verification code sent to your email',
-            email,
-            // Only include OTP in development for testing
-            ...(process.env.NODE_ENV === 'development' && { otp })
-        });
-    }
-    catch (error) {
-        console.error('Error sending OTP:', error);
-        res.status(500).json({ message: 'Error sending verification code' });
-    }
-};
-exports.sendOTP = sendOTP;
-// Verify OTP
-const verifyOTP = async (req, res) => {
-    try {
-        const { email, otp } = req.body;
-        if (!email || !otp) {
-            return res.status(400).json({ message: 'Email and OTP are required' });
-        }
-        // Check if OTP exists
-        const storedOTPData = otpStore.get(email);
-        if (!storedOTPData) {
-            return res.status(400).json({ message: 'OTP not found or expired' });
-        }
-        // Check if OTP is expired
-        if (new Date() > storedOTPData.expiresAt) {
-            otpStore.delete(email);
-            return res.status(400).json({ message: 'OTP has expired' });
-        }
-        // Check if OTP matches
-        if (storedOTPData.otp !== otp) {
-            return res.status(400).json({ message: 'Invalid OTP' });
-        }
-        // Mark as verified
-        storedOTPData.verified = true;
-        otpStore.set(email, storedOTPData);
-        res.status(200).json({
-            message: 'Email verified successfully',
-            verified: true
-        });
-    }
-    catch (error) {
-        console.error('Error verifying OTP:', error);
-        res.status(500).json({ message: 'Error verifying OTP' });
-    }
-};
-exports.verifyOTP = verifyOTP;
-// Resend OTP
-const resendOTP = async (req, res) => {
-    try {
-        const { email } = req.body;
-        if (!email) {
-            return res.status(400).json({ message: 'Email is required' });
-        }
-        // Check if user already exists
-        const existingUser = await User_1.User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User already exists' });
-        }
-        // Generate new OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-        // Update stored OTP
-        otpStore.set(email, { otp, expiresAt, verified: false });
-        // Send email using your HTML template
-        await sendOtpEmail(email, otp);
-        res.status(200).json({
-            message: 'New verification code sent to your email',
-            // Only include OTP in development for testing
-            ...(process.env.NODE_ENV === 'development' && { otp })
-        });
-    }
-    catch (error) {
-        console.error('Error resending OTP:', error);
-        res.status(500).json({ message: 'Error resending verification code' });
-    }
-};
-exports.resendOTP = resendOTP;
-// calls otp sending function (keeping your existing function)
+// calls otp sending function 
 const otp = async (req, res) => {
     try {
         const { email } = req.body;
@@ -291,13 +191,6 @@ const register = async (req, res) => {
     try {
         const { email, password, name, role, otp } = req.body;
         const validatedData = registerSchema.parse({ email, password, name, role });
-        // If OTP is provided, verify it
-        if (otp) {
-            const storedOTPData = otpStore.get(email);
-            if (!storedOTPData || !storedOTPData.verified || storedOTPData.otp !== otp) {
-                return res.status(400).json({ message: 'Invalid or unverified OTP' });
-            }
-        }
         // Check if user already exists
         const existingUser = await User_1.User.findOne({ email });
         if (existingUser) {
@@ -312,10 +205,6 @@ const register = async (req, res) => {
             isEmailVerified: otp ? true : false
         });
         await user.save();
-        // Clean up OTP if used
-        if (otp) {
-            otpStore.delete(email);
-        }
         // Generate token
         const token = jsonwebtoken_1.default.sign({ id: user._id }, process.env.JWT_SECRET || 'your-super-secret-jwt-key', { expiresIn: '7d' });
         res.status(201).json({
@@ -472,15 +361,15 @@ exports.searchUsers = searchUsers;
 // Get all users (for connect page)
 const getAllUsers = async (req, res) => {
     try {
+        console.log('🔍 getAllUsers called with query:', req.query);
         const { search, skills, role, university, sort = 'active', page = '1', limit = '20' } = req.query;
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
-        // Build query - only show verified users
+        // Build query - REMOVE the isEmailVerified filter for now
         const query = {};
-        if (User_1.User.schema.paths.isEmailVerified) {
-            query.isEmailVerified = true;
-        }
+        // Exclude mentors by default (optional)
+        // query.role = { $ne: 'mentor' };
         // Search filter
         if (search) {
             query.$or = [
@@ -502,6 +391,7 @@ const getAllUsers = async (req, res) => {
         if (university) {
             query.university = university;
         }
+        console.log('📝 Database query:', query);
         // Sort options
         let sortOption = {};
         switch (sort) {
@@ -515,27 +405,36 @@ const getAllUsers = async (req, res) => {
                 sortOption = { name: 1 };
                 break;
             default:
-                sortOption = { createdAt: -1 };
+                sortOption = { lastSeen: -1, createdAt: -1 }; // Recently active first
         }
         const users = await User_1.User.find(query)
-            .select('-password')
+            .select('-password') // Don't include passwords
             .sort(sortOption)
             .skip(skip)
             .limit(limitNum)
-            .populate('projects', 'title');
+            .populate('projects', 'title')
+            .lean(); // Convert to plain objects
+        console.log('👥 Found users:', users.length);
+        console.log('👥 Sample user:', users[0]); // Log first user for debugging
         const total = await User_1.User.countDocuments(query);
+        console.log('📤 Sending response with', users.length, 'users');
         res.json({
-            users,
+            success: true,
+            users: users,
             pagination: {
                 current: pageNum,
                 pages: Math.ceil(total / limitNum),
                 total
-            }
+            },
+            count: users.length
         });
     }
     catch (error) {
-        console.error('Error fetching users:', error);
-        res.status(500).json({ message: 'Error fetching users' });
+        console.error('❌ Error in getAllUsers:', error);
+        res.status(500).json({
+            message: 'Failed to fetch users',
+            error: typeof error === 'object' && error !== null && 'message' in error ? error.message : String(error)
+        });
     }
 };
 exports.getAllUsers = getAllUsers;
@@ -561,15 +460,3 @@ const getUserById = async (req, res) => {
     }
 };
 exports.getUserById = getUserById;
-// Clean up expired OTPs (run this periodically)
-const cleanupExpiredOTPs = () => {
-    const now = new Date();
-    for (const [email, data] of otpStore.entries()) {
-        if (now > data.expiresAt) {
-            otpStore.delete(email);
-        }
-    }
-};
-exports.cleanupExpiredOTPs = cleanupExpiredOTPs;
-// Set up cleanup interval (run every 5 minutes)
-setInterval(exports.cleanupExpiredOTPs, 5 * 60 * 1000);
