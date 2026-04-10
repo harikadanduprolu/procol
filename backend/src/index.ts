@@ -21,6 +21,7 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
+const isRenderOrigin = (origin: string) => /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin);
 
 // Define allowed origins
 const allowedOrigins = ([
@@ -34,10 +35,22 @@ const allowedOrigins = ([
 
 console.log('Allowed origins:', allowedOrigins);
 
+const isOriginAllowed = (origin?: string) => {
+  if (!origin) {
+    return true;
+  }
+  return allowedOrigins.includes(origin) || isRenderOrigin(origin);
+};
+
 
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -49,11 +62,7 @@ export { io };
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) {
-      return callback(null, true);
-    }
-    if (allowedOrigins.includes(origin)) {
+    if (isOriginAllowed(origin)) {
       return callback(null, true);
     }
     return callback(new Error('Not allowed by CORS'));
