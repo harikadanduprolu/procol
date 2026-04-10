@@ -712,7 +712,7 @@ export const markAllAsRead = async (req: Request, res: Response) => {
 };
 
 /**
- * Mark specific conversation messages as read
+ * Mark specific conversation messages as read.
  * @route PUT /api/messages/:recipientId/read
  */
 export const markAsRead = async (req: Request, res: Response) => {
@@ -722,18 +722,28 @@ export const markAsRead = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
+    const { recipientId } = req.params;
     const { messageIds } = req.body;
+    const userObjectId = new Types.ObjectId(userId);
 
-    await Message.updateMany(
-      {
-        _id: { $in: messageIds },
-        recipientId: new Types.ObjectId(userId),
-        readBy: { $ne: new Types.ObjectId(userId) }
-      },
-      {
-        $addToSet: { readBy: new Types.ObjectId(userId) }
-      }
-    );
+    const query: any = {
+      recipientId: userObjectId,
+      readBy: { $ne: userObjectId }
+    };
+
+    if (Array.isArray(messageIds) && messageIds.length > 0) {
+      query._id = { $in: messageIds.map((id: string) => new Types.ObjectId(id)) };
+    } else if (recipientId && mongoose.Types.ObjectId.isValid(recipientId)) {
+      query.sender = new Types.ObjectId(recipientId);
+      query.recipientType = 'user';
+    } else {
+      return res.status(400).json({ message: 'Provide recipientId route param or messageIds array' });
+    }
+
+    await Message.updateMany(query, {
+      $addToSet: { readBy: userObjectId },
+      $set: { status: 'read' }
+    });
 
     res.json({ message: 'Messages marked as read' });
   } catch (error: any) {

@@ -22,6 +22,7 @@ router.post('/login', login);
 router.get('/profile', auth, getProfile);
 router.put('/profile', auth, updateProfile);
 router.get('/search', auth, searchUsers);
+router.get('/users/search', auth, searchUsers);
 // Public route for fetching all users (for Connect page)
 router.get('/users', getAllUsers);
 router.get('/users/:id', auth, getUserById);

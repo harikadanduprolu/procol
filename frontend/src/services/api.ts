@@ -81,7 +81,7 @@ export const authApi = {
     api.get('/teams/my'),
 
   searchUsers: (query: string) =>
-    api.get(`/auth/users/search?query=${encodeURIComponent(query)}`),
+    api.get(`/auth/search?query=${encodeURIComponent(query)}`),
 
   getAllUsers: (params?: Record<string, any>) => {
     console.log('🔍 getAllUsers called with:', params);
