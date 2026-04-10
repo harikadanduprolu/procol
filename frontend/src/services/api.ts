@@ -1,24 +1,9 @@
 import axios from 'axios';
 
-const resolveApiBaseUrl = () => {
-  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
-  if (configuredUrl) {
-    return configuredUrl.replace(/\/$/, '');
-  }
+console.log(import.meta.env.VITE_API_URL)
+// Define the base URL for the API
 
-  const isBrowser = typeof window !== 'undefined';
-  const isLocalhost =
-    isBrowser &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-  if (isBrowser && !isLocalhost) {
-    return `${window.location.origin}/api`;
-  }
-
-  return 'http://localhost:5000/api';
-};
-
-const API_BASE_URL = resolveApiBaseUrl();
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 
 

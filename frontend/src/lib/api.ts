@@ -1,26 +1,8 @@
 import axios from 'axios';
 
-const resolveApiBaseUrl = () => {
-  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
-  if (configuredUrl) {
-    return configuredUrl.replace(/\/$/, '');
-  }
-
-  const isBrowser = typeof window !== 'undefined';
-  const isLocalhost =
-    isBrowser &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-  if (isBrowser && !isLocalhost) {
-    return `${window.location.origin}/api`;
-  }
-
-  return 'http://localhost:5000/api';
-};
-
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: resolveApiBaseUrl(),
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
