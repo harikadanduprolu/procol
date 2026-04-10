@@ -24,7 +24,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const from = (location.state as any)?.from?.pathname || '/';
+  const from = (location.state as any)?.from?.pathname || '/profile';
 
   const {
     register,

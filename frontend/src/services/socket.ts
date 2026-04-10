@@ -1,5 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 
+const PRODUCTION_SOCKET_FALLBACK = 'https://procol.onrender.com';
+
 // Types for messages and notifications
 export interface Message {
   id?: string;
@@ -55,7 +57,7 @@ class SocketService {
       : configuredApiUrl
         ? configuredApiUrl.replace(/\/api\/?$/, '')
         : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
-          ? window.location.origin
+          ? PRODUCTION_SOCKET_FALLBACK
           : 'http://localhost:5000';
 
     // Get the auth token from localStorage

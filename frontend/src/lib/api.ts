@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+const PRODUCTION_API_FALLBACK = 'https://procol.onrender.com/api';
+
 const resolveApiBaseUrl = () => {
   const configuredUrl = import.meta.env.VITE_API_URL?.trim();
   if (configuredUrl) {
@@ -12,7 +14,7 @@ const resolveApiBaseUrl = () => {
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   if (isBrowser && !isLocalhost) {
-    return `${window.location.origin}/api`;
+    return PRODUCTION_API_FALLBACK;
   }
 
   return 'http://localhost:5000/api';
