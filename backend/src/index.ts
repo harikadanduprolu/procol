@@ -14,6 +14,7 @@ import fundingRoutes from './routes/funding';
 import messageRoutes from './routes/message';
 import notificationRoutes from './routes/notification';
 import mentorRoutes from './routes/mentor'; // <-- Add this import
+import aiRoutes from './routes/ai';
 
 // Load environment variables
 dotenv.config();
@@ -131,6 +132,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/mentors', mentorRoutes); // <-- Add this line
 app.use('/api/teams', teamRoutes);
+app.use('/api/ai', aiRoutes);
 
 
 // Error handling middleware
