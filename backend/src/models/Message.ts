@@ -27,6 +27,7 @@ export interface IMessage extends Document {
   recipientId: mongoose.Types.ObjectId;
   recipientType: RecipientType;
   content: string;
+  conversationId?: string;
   status: MessageStatus;
   readBy: mongoose.Types.ObjectId[];
   metadata: MessageMetadata;
@@ -79,9 +80,13 @@ const MessageSchema = new Schema(
       required: true,
       default: 'user' 
     },
-    content: { 
-      type: String, 
-      required: true 
+    conversationId: {
+      type: String,
+      trim: true
+    },
+    content: {
+      type: String,
+      required: true
     },
     status: { 
       type: String, 
@@ -121,7 +126,17 @@ MessageSchema.virtual('recipient').get(function() {
 
 // Indexes for efficient querying
 MessageSchema.index({ sender: 1, recipientId: 1, recipientType: 1 });
+MessageSchema.index({ conversationId: 1, createdAt: -1 });
 MessageSchema.index({ recipientId: 1, recipientType: 1 });
+
+// Compatibility fields used by the frontend chat UI.
+MessageSchema.virtual('timestamp').get(function(this: IMessage) {
+  return this.createdAt;
+});
+
+MessageSchema.virtual('read').get(function(this: IMessage) {
+  return this.status === 'read';
+});
 MessageSchema.index({ createdAt: -1 });
 MessageSchema.index({ 'metadata.mentions': 1 });
 MessageSchema.index({ status: 1 });

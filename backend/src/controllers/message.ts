@@ -6,6 +6,8 @@ import { Team, ITeam } from '../models/Team';
 import { Project, IProject } from '../models/Project';
 import { io } from '../index';
 
+const buildDirectConversationId = (a: string, b: string) => [a, b].sort().join(':');
+
 // Helper function to validate and get recipient
 const getRecipient = async (id: string, type: RecipientType) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -99,14 +101,22 @@ export const sendMessage = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid recipientId' });
     }
 
+    const recipient = await User.findById(new Types.ObjectId(recipientId));
+    if (!recipient) {
+      return res.status(404).json({ message: 'Recipient not found' });
+    }
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({ message: 'Message content is required' });
+    }
+
     const message = new Message({
       sender: new Types.ObjectId(sender),
       recipientId: new Types.ObjectId(recipientId),
       recipientType: 'user',
-      content,
-      metadata: {
-        readBy: [new Types.ObjectId(sender)]
-      }
+      conversationId: buildDirectConversationId(sender.toString(), recipientId),
+      content: String(content).trim(),
+      readBy: [new Types.ObjectId(sender)]
     });
 
     await message.save();
@@ -132,7 +142,16 @@ export const sendTeamMessage = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const { teamId, content } = req.body;
+    const { teamId } = req.params;
+    const { content } = req.body;
+
+    if (!teamId || !mongoose.Types.ObjectId.isValid(teamId)) {
+      return res.status(400).json({ message: 'Invalid teamId' });
+    }
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({ message: 'Message content is required' });
+    }
 
     // Check if user is team member
     const isMember = await isTeamMember(teamId, sender?.toString());
@@ -151,10 +170,8 @@ export const sendTeamMessage = async (req: Request, res: Response) => {
       sender: new Types.ObjectId(sender),
       recipientId: new Types.ObjectId(teamId),
       recipientType: 'team',
-      content,
-      metadata: {
-        readBy: [new Types.ObjectId(sender)]
-      }
+      content: String(content).trim(),
+      readBy: [new Types.ObjectId(sender)]
     });
 
     await message.save();
@@ -182,7 +199,16 @@ export const sendProjectMessage = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const { projectId, content } = req.body;
+    const { projectId } = req.params;
+    const { content } = req.body;
+
+    if (!projectId || !mongoose.Types.ObjectId.isValid(projectId)) {
+      return res.status(400).json({ message: 'Invalid projectId' });
+    }
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({ message: 'Message content is required' });
+    }
 
     // Check if user is project member
     const isMember = await isProjectMember(projectId, sender?.toString());
@@ -201,10 +227,8 @@ export const sendProjectMessage = async (req: Request, res: Response) => {
       sender: new Types.ObjectId(sender),
       recipientId: new Types.ObjectId(projectId),
       recipientType: 'project',
-      content,
-      metadata: {
-        readBy: [new Types.ObjectId(sender)]
-      }
+      content: String(content).trim(),
+      readBy: [new Types.ObjectId(sender)]
     });
 
     await message.save();
@@ -242,17 +266,22 @@ export const getConversations = async (req: Request, res: Response) => {
         }
       },
       {
-        $sort: { createdAt: -1 }
-      },
-      {
-        $group: {
-          _id: {
+        $addFields: {
+          otherUserId: {
             $cond: [
               { $eq: ['$sender', new Types.ObjectId(userId.toString())] },
               '$recipientId',
               '$sender'
             ]
-          },
+          }
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: '$otherUserId',
           lastMessage: { $first: '$$ROOT' },
           unreadCount: {
             $sum: {
@@ -260,7 +289,7 @@ export const getConversations = async (req: Request, res: Response) => {
                 {
                   $and: [
                     { $eq: ['$recipientId', new Types.ObjectId(userId.toString())] },
-                    { $not: [{ $in: [new Types.ObjectId(userId.toString()), '$metadata.readBy'] }] }
+                    { $not: [{ $in: [new Types.ObjectId(userId.toString()), '$readBy'] }] }
                   ]
                 },
                 1,
@@ -268,6 +297,34 @@ export const getConversations = async (req: Request, res: Response) => {
               ]
             }
           }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'otherUser'
+        }
+      },
+      {
+        $unwind: {
+          path: '$otherUser',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          name: '$otherUser.name',
+          avatar: '$otherUser.avatar',
+          type: { $literal: 'direct' },
+          participants: [
+            { id: new Types.ObjectId(userId.toString()) },
+            { id: '$_id', name: '$otherUser.name', avatar: '$otherUser.avatar' }
+          ],
+          unreadCount: 1,
+          lastMessage: 1
         }
       }
     ]);
@@ -290,14 +347,20 @@ export const getMessages = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const { otherUserId } = req.params;
+    const { recipientId } = req.params;
+
+    if (!recipientId || !mongoose.Types.ObjectId.isValid(recipientId)) {
+      return res.status(400).json({ message: 'Invalid recipientId' });
+    }
 
     const messages = await Message.find({
       $or: [
-        { sender: new Types.ObjectId(userId), recipientId: new Types.ObjectId(otherUserId), recipientType: 'user' },
-        { sender: new Types.ObjectId(otherUserId), recipientId: new Types.ObjectId(userId), recipientType: 'user' }
+        { sender: new Types.ObjectId(userId), recipientId: new Types.ObjectId(recipientId), recipientType: 'user' },
+        { sender: new Types.ObjectId(recipientId), recipientId: new Types.ObjectId(userId), recipientType: 'user' }
       ]
-    }).sort({ createdAt: 1 });
+    })
+      .sort({ createdAt: 1 })
+      .populate('sender', 'name avatar');
 
     res.json(messages);
   } catch (error: any) {
@@ -603,10 +666,10 @@ export const markAllAsRead = async (req: Request, res: Response) => {
       {
         recipientId: new Types.ObjectId(userId),
         recipientType: 'user',
-        'metadata.readBy': { $ne: new Types.ObjectId(userId) }
+        readBy: { $ne: new Types.ObjectId(userId) }
       },
       {
-        $addToSet: { 'metadata.readBy': new Types.ObjectId(userId) },
+        $addToSet: { readBy: new Types.ObjectId(userId) },
         $set: { status: 'read' }
       }
     );
@@ -618,10 +681,10 @@ export const markAllAsRead = async (req: Request, res: Response) => {
         {
           recipientId: team._id,
           recipientType: 'team',
-          'metadata.readBy': { $ne: new Types.ObjectId(userId) }
+          readBy: { $ne: new Types.ObjectId(userId) }
         },
         {
-          $addToSet: { 'metadata.readBy': new Types.ObjectId(userId) }
+          $addToSet: { readBy: new Types.ObjectId(userId) }
         }
       );
     }
@@ -633,10 +696,10 @@ export const markAllAsRead = async (req: Request, res: Response) => {
         {
           recipientId: project._id,
           recipientType: 'project',
-          'metadata.readBy': { $ne: new Types.ObjectId(userId) }
+          readBy: { $ne: new Types.ObjectId(userId) }
         },
         {
-          $addToSet: { 'metadata.readBy': new Types.ObjectId(userId) }
+          $addToSet: { readBy: new Types.ObjectId(userId) }
         }
       );
     }
@@ -665,10 +728,10 @@ export const markAsRead = async (req: Request, res: Response) => {
       {
         _id: { $in: messageIds },
         recipientId: new Types.ObjectId(userId),
-        'metadata.readBy': { $ne: new Types.ObjectId(userId) }
+        readBy: { $ne: new Types.ObjectId(userId) }
       },
       {
-        $addToSet: { 'metadata.readBy': new Types.ObjectId(userId) }
+        $addToSet: { readBy: new Types.ObjectId(userId) }
       }
     );
 
@@ -692,7 +755,7 @@ export const getUnreadCount = async (req: Request, res: Response) => {
 
     const count = await Message.countDocuments({
       recipientId: new Types.ObjectId(userId),
-      'metadata.readBy': { $ne: new Types.ObjectId(userId) }
+      readBy: { $ne: new Types.ObjectId(userId) }
     });
 
     res.json({ count });
@@ -731,7 +794,7 @@ export const createConversation = async (req: Request, res: Response) => {
     }
     // Compose conversation object
     const conversation = {
-      _id: [userId, otherUserId].sort().join('-'),
+      _id: otherUserId,
       name: otherUser.name,
       avatar: otherUser.avatar,
       type: 'direct',
