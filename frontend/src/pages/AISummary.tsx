@@ -45,11 +45,16 @@ const AISummary = () => {
         title: 'Summary ready',
         description: 'AI analyzed your tasks successfully.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI summary failed:', error);
+      const backendMessage =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Could not generate summary';
       toast({
         title: 'AI failed',
-        description: 'Could not generate summary. Check your OpenAI key and backend logs.',
+        description: backendMessage,
         variant: 'destructive',
       });
     } finally {

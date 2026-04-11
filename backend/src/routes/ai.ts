@@ -1,6 +1,6 @@
 import express from 'express';
 import { auth } from '../middleware/auth';
-import { summarizeTasks } from '../services/aiService';
+import { AISummaryError, summarizeTasks } from '../services/aiService';
 
 const router = express.Router();
 
@@ -24,9 +24,15 @@ router.post('/summarize', auth, async (req, res) => {
     const result = await summarizeTasks(normalizedTasks, userId || 'default');
 
     res.json({ success: true, data: result });
-  } catch (error) {
+  } catch (error: any) {
     console.error('AI summarize failed:', error);
-    res.status(500).json({ error: 'AI failed' });
+
+    if (error instanceof AISummaryError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+
+    const fallbackMessage = error?.message || 'AI failed';
+    return res.status(500).json({ error: fallbackMessage });
   }
 });
 
