@@ -1,131 +1,170 @@
-﻿# ProjectHub
+﻿# ProjectHub (ProCollab)
 
-A platform for connecting developers, mentors, and projects.
+Full-stack collaboration platform for students and teams:
 
-## Features
-
-- User authentication (signup, login, profile)
-- Project management (create, update, delete)
-- Team collaboration
-- Mentor matching
-- Funding campaigns
-- Real-time messaging
-- Notifications
+- Authentication and profiles
+- Projects, teams, mentors, and funding workflows
+- Real-time chat and notifications (Socket.IO)
+- AI task summarization using LangChain + OpenAI
 
 ## Tech Stack
 
-### Frontend
-- React with TypeScript
-- Vite for build tooling
-- React Router for navigation
-- React Query for data fetching
-- Tailwind CSS for styling
-- Shadcn UI components
+### Frontend (`frontend`)
+- React + TypeScript
+- Vite
+- React Router
+- TanStack Query
+- Tailwind CSS + shadcn/ui
+- Socket.IO client
 
-### Backend
-- Node.js with Express
-- TypeScript
-- MongoDB with Mongoose
-- JWT for authentication
-- Socket.IO for real-time features
+### Backend (`backend`)
+- Node.js + Express + TypeScript
+- MongoDB + Mongoose
+- JWT auth
+- Socket.IO server
+- LangChain (`@langchain/openai`, `@langchain/classic`)
 
-## Getting Started
+## Project Structure
 
-### Prerequisites
-- Node.js (v16+)
-- MongoDB
+- `backend/` main API and realtime server
+- `frontend/` web client
+- `chatbot/` separate chatbot prototype area
 
-### Backend Setup
+## Local Setup
 
-1. Navigate to the backend directory:
-   ```
-   cd backend
-   ```
+### 1) Backend
 
-2. Install dependencies:
-   ```
-   npm install
-   ```
+```bash
+cd backend
+npm install
+```
 
-3. Create a `.env` file with the following variables:
-   ```
-   PORT=5000
-   MONGODB_URI=mongodb://localhost:27017/projecthub
-   JWT_SECRET=your_jwt_secret
-   FRONTEND_URL=http://localhost:5173
-   ```
+Create `backend/.env` with at least:
 
-4. Start the development server:
-   ```
-   npm run dev
-   ```
+```dotenv
+PORT=5000
+NODE_ENV=development
+MONGODB_URI=mongodb://localhost:27017/projecthub
+JWT_SECRET=replace_with_secure_secret
+FRONTEND_URL=http://localhost:8080
+SOCKET_CORS_ORIGIN=http://localhost:8080
+OPENAI_API_KEY=replace_with_valid_key
+```
 
-### Frontend Setup
+Run backend:
 
-1. Navigate to the frontend directory:
-   ```
-   cd frontend
-   ```
+```bash
+npm run dev
+```
 
-2. Install dependencies:
-   ```
-   npm install
-   ```
+### 2) Frontend
 
-3. Create a `.env` file with the following variables:
-   ```
-   VITE_API_URL=http://localhost:5000/api
-   ```
+```bash
+cd frontend
+npm install
+```
 
-4. Start the development server:
-   ```
-   npm run dev
-   ```
+Create `frontend/.env.local`:
 
-## API Documentation
+```dotenv
+VITE_API_URL=http://localhost:5000/api
+VITE_SOCKET_URL=http://localhost:5000
+```
 
-### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/profile` - Get user profile (protected)
+Run frontend:
+
+```bash
+npm run dev
+```
+
+## Backend Scripts
+
+From `backend/`:
+
+- `npm run dev` start dev server
+- `npm run build` compile TypeScript (uses increased heap for Render stability)
+- `npm start` run compiled server
+- `npm run seed` seed sample data
+- `npm run clear:chat` clear messages + message notifications
+- `npm run clear:db` clear full database (destructive)
+
+## AI Summarizer
+
+### Endpoint
+
+- `POST /api/ai/summarize` (protected)
+
+Request body:
+
+```json
+{
+  "tasks": [
+    "Finalize scope",
+    "Review blockers",
+    "Prepare demo"
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": "1. Summary ..."
+}
+```
+
+Notes:
+
+- Requires valid `OPENAI_API_KEY` on backend.
+- AI memory is process-local and resets on restart/redeploy.
+
+## API Summary
+
+### Auth
+- `POST /api/auth/otp`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/profile` (protected)
+- `PUT /api/auth/profile` (protected)
+- `GET /api/auth/search` (protected)
+- `GET /api/auth/users`
+- `GET /api/auth/users/:id` (protected)
 
 ### Projects
-- `GET /api/projects` - Get all projects
-- `GET /api/projects/:id` - Get a specific project
-- `POST /api/projects` - Create a new project (protected)
-- `PUT /api/projects/:id` - Update a project (protected)
-- `DELETE /api/projects/:id` - Delete a project (protected)
-- `POST /api/projects/:id/team` - Add a team member (protected)
-- `DELETE /api/projects/:id/team` - Remove a team member (protected)
-
-### Teams
-- `GET /api/teams` - Get all teams
-- `GET /api/teams/:id` - Get a specific team
-- `POST /api/teams` - Create a new team (protected)
-- `PUT /api/teams/:id` - Update a team (protected)
-- `DELETE /api/teams/:id` - Delete a team (protected)
-- `POST /api/teams/:id/members` - Add a team member (protected)
-- `DELETE /api/teams/:id/members` - Remove a team member (protected)
-
-### Funding
-- `GET /api/funding` - Get all funding campaigns
-- `GET /api/funding/:id` - Get a specific funding campaign
-- `POST /api/funding` - Create a new funding campaign (protected)
-- `PUT /api/funding/:id` - Update a funding campaign (protected)
-- `DELETE /api/funding/:id` - Delete a funding campaign (protected)
-- `POST /api/funding/:id/back` - Back a funding campaign (protected)
+- `GET /api/projects`
+- `GET /api/projects/user/projects` (protected)
+- `GET /api/projects/:id`
+- `POST /api/projects` (protected)
+- `PUT /api/projects/:id` (protected)
+- `DELETE /api/projects/:id` (protected)
 
 ### Messages
-- `GET /api/messages/conversations` - Get all conversations (protected)
-- `GET /api/messages/:userId` - Get messages with a specific user (protected)
-- `POST /api/messages` - Send a message (protected)
-- `PUT /api/messages/:userId/read` - Mark messages as read (protected)
+- `GET /api/messages/conversations` (protected)
+- `GET /api/messages/:recipientId` (protected)
+- `POST /api/messages` (protected)
+- `PUT /api/messages/:recipientId/read` (protected)
 
-### Notifications
-- `GET /api/notifications` - Get all notifications (protected)
-- `POST /api/notifications` - Create a notification (protected)
-- `PUT /api/notifications/:id/read` - Mark a notification as read (protected)
-- `PUT /api/notifications/all/read` - Mark all notifications as read (protected)
-- `DELETE /api/notifications/:id` - Delete a notification (protected)
+## Deployment Notes (Render)
+
+Backend environment variables (minimum):
+
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `FRONTEND_URL`
+- `SOCKET_CORS_ORIGIN`
+- `OPENAI_API_KEY`
+
+Frontend environment variables:
+
+- `VITE_API_URL=https://<your-backend>.onrender.com/api`
+- `VITE_SOCKET_URL=https://<your-backend>.onrender.com`
+
+## Security
+
+- Never commit `.env` files.
+- Rotate any key if it was ever exposed.
+- Keep production secrets only in your hosting provider's environment settings.
 
 
